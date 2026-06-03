@@ -47,18 +47,24 @@ model Rubric {
   professor   User       @relation("ProfessorRubrics", fields: [professorId], references: [id])
   questions   Question[] 
 }
-
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  ESSAY
+}
 model Question {
-  id          String   @id @default(uuid())
-  content     String   @db.Text
-  createdAt   DateTime @default(now())
+  id          String       @id @default(uuid())
+  content     String       @db.Text // Aqui será salvo o HTML/Markdown do texto rico
+  type        QuestionType
+  details     Json         // Armazenará alternativas, respostas corretas ou palavras-chave
+  createdAt   DateTime     @default(now())
 
   // Relacionamentos
   professorId String
-  professor   User     @relation("ProfessorQuestions", fields: [professorId], references: [id])
+  professor   User         @relation("ProfessorQuestions", fields: [professorId], references: [id])
   rubricId    String?
-  rubric      Rubric?  @relation(fields: [rubricId], references: [id])
-  quizzes     QuizQuestion[] 
+  rubric      Rubric?      @relation(fields: [rubricId], references: [id])
+  quizzes     QuizQuestion[]
 }
 
 model Quiz {

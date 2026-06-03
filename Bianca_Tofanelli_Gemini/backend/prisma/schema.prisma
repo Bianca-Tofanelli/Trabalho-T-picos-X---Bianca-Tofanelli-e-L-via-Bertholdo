@@ -2,114 +2,61 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Usaremos SQLite agora no início para facilitar o desenvolvimento local
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  url      = env("DATABASE_URL")
 }
-
-// -----------------------------------------------------------------------------
-// ENUMS
-// -----------------------------------------------------------------------------
-enum Role {
-  PROFESSOR
-  ALUNO
-}
-
-enum QuestionType {
-  MULTIPLE_CHOICE
-  TRUE_FALSE
-  ESSAY
-}
-
-enum FeedbackStrategy {
-  IMMEDIATE
-  AFTER_CLOSE
-}
-
-// -----------------------------------------------------------------------------
-// MODELS (TABELAS)
-// -----------------------------------------------------------------------------
 
 model User {
-  id           String       @id @default(uuid())
-  name         String
-  email        String       @unique
-  passwordHash String
-  role         String       @default("ALUNO") // No SQLite, enums viram strings
-  createdAt    DateTime     @default(now())
-
-  // Relacionamentos
-  createdQuizzes    Quiz[]       @relation("ProfessorQuizzes")
-  createdQuestions  Question[]   @relation("ProfessorQuestions")
-  createdRubrics    Rubric[]     @relation("ProfessorRubrics")
-  submissions       Submission[] @relation("AlunoSubmissions")
-}
-
-model Rubric {
-  id          String     @id @default(uuid())
-  title       String
-  criteria    String     // No SQLite, Json é salvo como String
-  createdAt   DateTime   @default(now())
-
-  // Relacionamentos
-  professorId String
-  professor   User       @relation("ProfessorRubrics", fields: [professorId], references: [id])
-  questions   Question[] 
-}
-
-model Question {
-  id          String       @id @default(uuid())
-  content     String
-  type        String       // No SQLite, enums viram strings
-  details     String       // No SQLite, Json é salvo como String
-  createdAt   DateTime     @default(now())
-
-  // Relacionamentos
-  professorId String
-  professor   User         @relation("ProfessorQuestions", fields: [professorId], references: [id])
-  rubricId    String?
-  rubric      Rubric?      @relation(fields: [rubricId], references: [id])
-  quizzes     QuizQuestion[]
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  
+  // No SQLite, trocamos o Enum por String com um valor padrão entre aspas
+  role      String   @default("ALUNO") 
+  
+  quizzes   Quiz[]
+  questions Question[]
 }
 
 model Quiz {
-  id               String           @id @default(uuid())
+  id               Int      @id @default(autoincrement())
   title            String
-  description      String?          
-  duration         Int              
-  startDate        DateTime         
-  endDate          DateTime         
-  feedbackStrategy String           @default("IMMEDIATE")
-  createdAt        DateTime         @default(now())
-
-  // Relacionamentos
-  professorId      String
-  professor        User             @relation("ProfessorQuizzes", fields: [professorId], references: [id])
+  duration         Int
+  startDate        DateTime
+  endDate          DateTime
+  
+  // Trocado de Enum para String
+  feedbackStrategy String   @default("AFTER_CLOSE") 
+  
+  professorId      Int
+  professor        User     @relation(fields: [professorId], references: [id])
+  
   questions        QuizQuestion[]
-  submissions      Submission[]
 }
 
-// Tabela pivô para o relacionamento N:M entre Quiz e Question
+model Question {
+  id          Int      @id @default(autoincrement())
+  content     String
+  
+  // Trocado de Enum para String (receberá "MULTIPLE_CHOICE", "TRUE_FALSE" ou "ESSAY")
+  type        String   
+  
+  details     String   // Guardará as opções e respostas em formato JSON
+  professorId Int
+  professor   User     @relation(fields: [professorId], references: [id])
+  
+  quizzes     QuizQuestion[]
+}
+
+// Tabela de ligação entre Quiz e Questões (Muitos para Muitos)
 model QuizQuestion {
-  quizId     String
-  questionId String
+  quizId     Int
+  questionId Int
+  
   quiz       Quiz     @relation(fields: [quizId], references: [id])
   question   Question @relation(fields: [questionId], references: [id])
 
   @@id([quizId, questionId])
-}
-
-model Submission {
-  id        String    @id @default(uuid())
-  answers   String    // No SQLite, Json é salvo como String
-  score     Float?    
-  gradedAt  DateTime?
-  createdAt DateTime  @default(now())
-
-  // Relacionamentos
-  quizId    String
-  quiz      Quiz      @relation(fields: [quizId], references: [id])
-  alunoId   String
-  aluno     User      @relation("AlunoSubmissions", fields: [alunoId], references: [id])
 }

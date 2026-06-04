@@ -1,6 +1,7 @@
 import express from 'express';
 // 1. Importamos o arquivo de rotas (Ajuste o caminho se o seu arquivo se chamar diferente)
 import authRoutes from './routes/auth.routes.js'; 
+import quizRoutes from './routes/quiz.routes.js'; // <-- 1. ADICIONEI ESTA LINHA AQUI!
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,10 @@ app.get('/', (req, res) => {
 // 👇 2. O SEGREDO QUE FALTAVA 👇
 // Toda vez que chegar um pedido começando com /api/auth, ele manda para o authRoutes
 app.use('/api/auth', authRoutes);
+
+// 👇 2. ADICIONEI ESTA LINHA TAMBÉM 👇
+// Toda vez que chegar um pedido começando com /api/quizzes, ele manda para o quizRoutes
+app.use('/api/quizzes', quizRoutes);
 
 // Iniciando o servidor
 app.listen(PORT, () => {

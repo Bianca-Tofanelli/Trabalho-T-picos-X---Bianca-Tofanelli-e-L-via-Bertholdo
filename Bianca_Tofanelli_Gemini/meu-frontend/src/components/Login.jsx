@@ -41,6 +41,7 @@ export default function Login({ onLoginSuccess }) {
       if (isLogin) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('userRole', data.user.role);
+        localStorage.setItem('userId', data.user.id); 
         onLoginSuccess();
       } else {
         alert('Cadastro realizado com sucesso! Agora você pode entrar.');

@@ -1,4 +1,3 @@
-// src/components/QuizCreator.jsx
 import { useState } from 'react';
 
 export default function QuizCreator() {
@@ -47,41 +46,52 @@ export default function QuizCreator() {
     }));
   };
 
+  // 👇 AQUI ESTÁ A MÁGICA: A FUNÇÃO CONECTADA AO BANCO DE DADOS 👇
   const handleSaveQuiz = async () => {
-    if (!quizData.title || questions.length === 0) {
-      return alert('Preencha o título e adicione pelo menos uma questão!');
+    if (!quizData.title) {
+      return alert('Preencha pelo menos o título da prova!');
     }
 
     setIsSaving(true);
     try {
-      // Aqui você faria o fetch para a API enviando quizData e questions
-      /*
-      await fetch('/api/professor/quizzes', {
+      const userId = localStorage.getItem('userId');
+
+      const response = await fetch('/api/quizzes', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ ...quizData, questions })
+        // Enviando os dados exatamente como o nosso Backend espera!
+        body: JSON.stringify({
+          title: quizData.title,
+          duration: quizData.duration,
+          professorId: userId
+        })
       });
-      */
+
+      if (!response.ok) {
+        throw new Error('Falha ao salvar no banco de dados.');
+      }
+
+      alert('Prova criada e salva no sistema com sucesso!');
       
-      // Simulação de sucesso para testes
-      setTimeout(() => {
-        alert('Prova criada com sucesso!');
-        setIsSaving(false);
-      }, 1000);
+      // Limpa os campos para o professor poder criar uma nova prova
+      setQuizData({ title: '', duration: 60, startDate: '', endDate: '', feedbackStrategy: 'AFTER_CLOSE' });
+      setQuestions([]);
 
     } catch (error) {
-      alert('Erro ao criar a prova.');
+      console.error(error);
+      alert('Erro de conexão ao tentar criar a prova.');
+    } finally {
       setIsSaving(false);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <div className="bg-white p-6 rounded-xl shadow-sm border">
-        <h1 className="text-2xl font-bold mb-6">Criar Nova Prova</h1>
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <h1 className="text-2xl font-bold mb-6 text-gray-800">Criar Nova Prova</h1>
         
         {/* Configurações Gerais da Prova */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -100,6 +110,7 @@ export default function QuizCreator() {
             <input 
               type="datetime-local" 
               className="mt-1 w-full p-2 border rounded"
+              value={quizData.startDate}
               onChange={e => setQuizData({...quizData, startDate: e.target.value})}
             />
           </div>
@@ -108,6 +119,7 @@ export default function QuizCreator() {
             <input 
               type="datetime-local" 
               className="mt-1 w-full p-2 border rounded"
+              value={quizData.endDate}
               onChange={e => setQuizData({...quizData, endDate: e.target.value})}
             />
           </div>
@@ -150,7 +162,7 @@ export default function QuizCreator() {
             </div>
 
             <textarea 
-              className="w-full p-3 border rounded-lg mb-4" 
+              className="w-full p-3 border rounded-lg mb-4 outline-none focus:ring-2 focus:ring-blue-200" 
               rows="2" 
               placeholder="Digite o enunciado da questão aqui..."
               value={q.content}
@@ -171,7 +183,7 @@ export default function QuizCreator() {
                     />
                     <input 
                       type="text" 
-                      className={`flex-1 p-2 border rounded ${q.details.correctOptionIndex === i ? 'border-green-500 bg-green-50' : ''}`}
+                      className={`flex-1 p-2 border rounded outline-none ${q.details.correctOptionIndex === i ? 'border-green-500 bg-green-50' : ''}`}
                       placeholder={`Alternativa ${String.fromCharCode(65 + i)}`}
                       value={opt}
                       onChange={(e) => {
@@ -210,7 +222,7 @@ export default function QuizCreator() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Rubrica de Correção (O que o professor deve avaliar?)</label>
                 <textarea 
-                  className="w-full p-2 border rounded bg-yellow-50" 
+                  className="w-full p-2 border rounded bg-yellow-50 outline-none focus:ring-2 focus:ring-yellow-200" 
                   rows="2" 
                   placeholder="Ex: 1 ponto para clareza, 1 ponto se citar o conceito de Fotossíntese..."
                   value={q.details.rubric}
@@ -223,17 +235,17 @@ export default function QuizCreator() {
       </div>
 
       {/* Botões de Ação */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-gray-50 p-4 border rounded-xl gap-4">
-        <div className="flex gap-2">
-          <button onClick={() => addQuestion('MULTIPLE_CHOICE')} className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded shadow-sm hover:bg-gray-100 text-sm font-medium">+ Múltipla Escolha</button>
-          <button onClick={() => addQuestion('TRUE_FALSE')} className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded shadow-sm hover:bg-gray-100 text-sm font-medium">+ Verdadeiro/Falso</button>
-          <button onClick={() => addQuestion('ESSAY')} className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded shadow-sm hover:bg-gray-100 text-sm font-medium">+ Dissertativa</button>
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 border border-gray-200 shadow-sm rounded-xl gap-4">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => addQuestion('MULTIPLE_CHOICE')} className="bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium transition-colors">+ Múltipla Escolha</button>
+          <button onClick={() => addQuestion('TRUE_FALSE')} className="bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium transition-colors">+ Verdadeiro/Falso</button>
+          <button onClick={() => addQuestion('ESSAY')} className="bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium transition-colors">+ Dissertativa</button>
         </div>
         
         <button 
           onClick={handleSaveQuiz}
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-bold shadow-md disabled:opacity-50 w-full md:w-auto"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold shadow-md disabled:opacity-50 w-full md:w-auto transition-colors"
         >
           {isSaving ? 'Salvando...' : 'Salvar Prova no Sistema'}
         </button>

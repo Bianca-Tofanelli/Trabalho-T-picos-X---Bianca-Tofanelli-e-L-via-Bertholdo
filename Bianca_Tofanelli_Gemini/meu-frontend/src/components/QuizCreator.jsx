@@ -2,12 +2,14 @@ import { useState } from 'react';
 
 export default function QuizCreator() {
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Substituímos o antigo "feedbackStrategy" pelo "releaseMode" oficial
   const [quizData, setQuizData] = useState({
     title: '',
     duration: 60,
     startDate: '',
     endDate: '',
-    feedbackStrategy: 'AFTER_CLOSE'
+    releaseMode: 'IMMEDIATE' 
   });
 
   const [questions, setQuestions] = useState([]);
@@ -66,7 +68,8 @@ export default function QuizCreator() {
           title: quizData.title,
           duration: quizData.duration,
           professorId: userId,
-          questions: questions // 💡 ADICIONE ESTA LINHA AQUI!
+          releaseMode: quizData.releaseMode, // 👈 Envia a configuração pro backend
+          questions: questions
         })
       });
 
@@ -77,7 +80,7 @@ export default function QuizCreator() {
       alert('Prova criada e salva no sistema com sucesso!');
       
       // Limpa os campos para o professor poder criar uma nova prova
-      setQuizData({ title: '', duration: 60, startDate: '', endDate: '', feedbackStrategy: 'AFTER_CLOSE' });
+      setQuizData({ title: '', duration: 60, startDate: '', endDate: '', releaseMode: 'IMMEDIATE' });
       setQuestions([]);
 
     } catch (error) {
@@ -132,16 +135,18 @@ export default function QuizCreator() {
               onChange={e => setQuizData({...quizData, duration: e.target.value})}
             />
           </div>
+
+          {/* 👇 CAMPO DE LIBERAÇÃO ATUALIZADO AQUI 👇 */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Liberação de Resultados</label>
             <select 
               className="mt-1 w-full p-2 border rounded"
-              value={quizData.feedbackStrategy}
-              onChange={e => setQuizData({...quizData, feedbackStrategy: e.target.value})}
+              value={quizData.releaseMode}
+              onChange={e => setQuizData({...quizData, releaseMode: e.target.value})}
             >
-              <option value="IMMEDIATE">Imediato (Ao enviar)</option>
-              <option value="AFTER_CLOSE">Apenas após o fim do prazo</option>
-              <option value="MANUAL">Apenas quando eu liberar</option>
+              <option value="IMMEDIATE">Imediato (Ao entregar a prova)</option>
+              <option value="AFTER_DEADLINE">Apenas após o fim do prazo</option>
+              <option value="MANUAL">Manualmente (Apenas quando eu liberar)</option>
             </select>
           </div>
         </div>

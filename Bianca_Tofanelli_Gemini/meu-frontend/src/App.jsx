@@ -4,12 +4,15 @@ import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import QuizCreator from './components/QuizCreator';
 import QuizPlayer from './components/QuizPlayer';
+import QuizResult from './components/QuizResult';
+
 function App() {
   // Inicialização direta para evitar avisos de performance do React
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole'));
   const [currentView, setCurrentView] = useState('home');
   const [activeQuizId, setActiveQuizId] = useState(null);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
@@ -81,19 +84,31 @@ function App() {
         
         {currentView === 'create' && <QuizCreator />}
         {currentView === 'teacher' && <TeacherDashboard />}
+        
+        {/* 👇 AQUI ESTÁ A ATUALIZAÇÃO 👇 */}
         {currentView === 'student' && (
-       <StudentDashboard onStartQuiz={(id) => {
-         setActiveQuizId(id);
-         setCurrentView('taking_quiz'); // Troca a tela!
-       }} />
-     )}
+          <StudentDashboard onStartQuiz={(id, isResult = false) => {
+            setActiveQuizId(id);
+            // Se isResult for true, vai pra tela de resultado. Se false, vai pra prova.
+            setCurrentView(isResult ? 'view_result' : 'taking_quiz'); 
+          }} />
+        )}
 
-     {currentView === 'taking_quiz' && (
-       <QuizPlayer 
-         quizId={activeQuizId} 
-         onFinish={() => setCurrentView('student')} // Volta pro painel ao entregar
-       />
-     )}
+        {currentView === 'taking_quiz' && (
+          <QuizPlayer 
+            quizId={activeQuizId} 
+            onFinish={() => setCurrentView('student')} // Volta pro painel ao entregar
+          />
+        )}
+
+        {/* 👇 NOVA TELA DE RESULTADOS 👇 */}
+        {currentView === 'view_result' && (
+          <QuizResult 
+            quizId={activeQuizId} 
+            onBack={() => setCurrentView('student')} // Volta pro painel de provas
+          />
+        )}
+
       </main>
     </div>
   );

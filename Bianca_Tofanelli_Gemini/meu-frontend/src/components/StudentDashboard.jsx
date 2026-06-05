@@ -80,14 +80,26 @@ export default function StudentDashboard({ onStartQuiz }) {
 
         <div className="grid gap-4">
           {dashboard.completed.map(quiz => (
-            <div key={quiz.id} className="p-5 bg-gray-50 border border-gray-200 rounded-xl flex justify-between items-center opacity-85 shadow-sm">
+            <div key={quiz.id} className="p-5 bg-white border border-gray-200 rounded-xl flex justify-between items-center shadow-sm">
               <div>
-                <h3 className="font-bold text-lg text-gray-700 line-through">{quiz.title}</h3>
-                <p className="text-sm text-green-600 font-semibold mt-1">✓ Status: Enviada para correção</p>
+                <h3 className="font-bold text-lg text-gray-800">{quiz.title}</h3>
+                <p className="text-sm mt-1">
+                  Status: <span className="font-semibold text-blue-600">{quiz.statusDaCorrecao === 'GRADED' ? 'Corrigida' : 'Aguardando Professor'}</span>
+                </p>
               </div>
-              <span className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold text-sm">
-                Realizada
-              </span>
+              
+              {quiz.podeVerResultado ? (
+                <button 
+                  onClick={() => onStartQuiz(quiz.id, true)} 
+                  className="bg-green-100 text-green-800 px-6 py-2 rounded-lg font-bold border border-green-200 hover:bg-green-200 transition-colors"
+                >
+                  Ver Resultado
+                </button>
+              ) : (
+                <span className="bg-gray-100 text-gray-500 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 border border-gray-200">
+                  🔒 Aguardando Liberação
+                </span>
+              )}
             </div>
           ))}
         </div>

@@ -46,6 +46,8 @@ model Question {
   details     String   // Guardará as opções e respostas em formato JSON
   professorId Int
   professor   User     @relation(fields: [professorId], references: [id])
+  releaseMode String   @default("IMMEDIATE") // Pode ser: IMMEDIATE, AFTER_DEADLINE, ou MANUAL
+  isReleased  Boolean  @default(false)       // O "botão" para o professor liberar manualmente
   
   quizzes     QuizQuestion[]
 }

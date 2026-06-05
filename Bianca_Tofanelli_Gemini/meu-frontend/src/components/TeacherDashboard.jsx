@@ -5,6 +5,8 @@ export default function TeacherDashboard() {
   const [pendentes, setPendentes] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  const [notasExpandidas, setNotasExpandidas] = useState({});
 
   const userId = localStorage.getItem('userId');
 
@@ -17,7 +19,7 @@ export default function TeacherDashboard() {
         const resPendentes = await fetch(`/api/quizzes/professor/${userId}/pendentes`);
         if (resPendentes.ok) setPendentes(await resPendentes.json());
       } catch (err) {
-        console.error(err); // 💡 Usando a variável para debugar
+        console.error(err); 
         setError('Falha de conexão ao carregar os dados do painel.');
       } finally {
         setLoading(false);
@@ -33,23 +35,18 @@ export default function TeacherDashboard() {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-
       if (!response.ok) throw new Error('Falha ao baixar o arquivo');
-
       const blob = await response.blob();
       const url = window.URL.createObjectURL(new Blob([blob]));
-      
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `relatorio_turma_${quizId}.csv`); 
-      
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
-
     } catch (err) {
-      console.error(err); // 💡 Usando a variável para debugar
+      console.error(err); 
       alert('Erro ao fazer o download do relatório.');
     }
   };
@@ -57,40 +54,66 @@ export default function TeacherDashboard() {
   const handleDeleteQuiz = async (quizId) => {
     const confirmar = window.confirm("Tem certeza que deseja apagar esta prova?");
     if (!confirmar) return;
-
     try {
       const response = await fetch(`/api/quizzes/${quizId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Erro ao apagar.');
       setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
     } catch (err) {
-      console.error(err); // 💡 Usando a variável para debugar
+      console.error(err); 
       alert("Erro ao tentar excluir a prova.");
+    }
+  };
+
+  const handleLiberarResultados = async (quizId) => {
+    const confirmar = window.confirm("Deseja liberar as notas e o gabarito desta prova para todos os alunos agora?");
+    if (!confirmar) return;
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}/liberar`, { method: 'PATCH' });
+      if (!response.ok) throw new Error('Erro ao liberar.');
+      alert("Resultados liberados com sucesso!");
+      setQuizzes(quizzes.map(q => q.id === quizId ? { ...q, isReleased: true } : q));
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao tentar liberar os resultados.");
     }
   };
 
   const handleAvaliar = async (submissaoId, acertosAutomaticos) => {
     const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos} ponto(s) nas questões fechadas.\nQuantos pontos você dá para as respostas dissertativas?`);
-    
     if (notaStr === null) return; 
-    
     const nota = parseFloat(notaStr.replace(',', '.')); 
-    
     if (isNaN(nota)) return alert("Por favor, digite um número válido!");
-
     try {
       const res = await fetch(`/api/quizzes/submissao/${submissaoId}/avaliar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notaProfessor: nota })
       });
-
       if (!res.ok) throw new Error("Falha no servidor.");
-
       alert("Avaliação concluída! A nota final já está com o aluno.");
       setPendentes(pendentes.filter(p => p.submissaoId !== submissaoId));
     } catch (err) {
-      console.error(err); // 💡 Usando a variável para debugar
+      console.error(err); 
       alert("Erro de conexão ao salvar a nota.");
+    }
+  };
+
+  const toggleNotas = async (quizId) => {
+    if (notasExpandidas[quizId]) {
+      const novoEstado = { ...notasExpandidas };
+      delete novoEstado[quizId];
+      setNotasExpandidas(novoEstado);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/quizzes/${quizId}/notas`);
+      if (response.ok) {
+        const notas = await response.json();
+        setNotasExpandidas({ ...notasExpandidas, [quizId]: notas });
+      }
+    } catch (err) {
+      console.error(err); // 💡 Corrigido: O ESLint agora vai ficar feliz!
+      alert("Não foi possível carregar as notas no momento.");
     }
   };
 
@@ -155,7 +178,7 @@ export default function TeacherDashboard() {
 
       <hr className="border-gray-200" />
 
-      {/* SEÇÃO 2: RELATÓRIO GERAL DE PROVAS */}
+      {/* SEÇÃO 2: RELATÓRIO GERAL DE PROVAS (COM VISUALIZAÇÃO DE NOTAS NA TELA) */}
       <div>
         <h2 className="text-2xl font-bold mb-6 text-gray-800">Relatório Geral da Turma</h2>
         <div className="grid gap-6 md:grid-cols-2">
@@ -165,6 +188,36 @@ export default function TeacherDashboard() {
               <p className="text-gray-600 mb-6 font-medium">Duração: {quiz.duration} minutos</p>
               
               <div className="flex flex-col gap-3">
+                
+                <button 
+                  onClick={() => toggleNotas(quiz.id)}
+                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors border border-blue-200"
+                >
+                  {notasExpandidas[quiz.id] ? 'Ocultar Notas' : 'Ver Notas da Turma'}
+                </button>
+
+                {notasExpandidas[quiz.id] && (
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2 mb-2">
+                    <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">Pontuações:</h4>
+                    {notasExpandidas[quiz.id].length === 0 ? (
+                      <p className="text-sm text-gray-500 italic">Nenhum aluno realizou esta prova ainda.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {notasExpandidas[quiz.id].map(nota => (
+                          <li key={nota.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-100">
+                            <span className="text-gray-700">Aluno ID: <strong>{nota.studentId}</strong></span>
+                            {nota.status === 'GRADED' ? (
+                              <span className="font-bold text-green-600">{nota.score} pts</span>
+                            ) : (
+                              <span className="font-medium text-orange-500 italic">Pendente</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+
                 <button 
                   onClick={() => handleDownloadCSV(quiz.id)}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors"
@@ -174,6 +227,15 @@ export default function TeacherDashboard() {
                   </svg>
                   Baixar Relatório (CSV)
                 </button>
+
+                {quiz.releaseMode === 'MANUAL' && !quiz.isReleased && (
+                  <button 
+                    onClick={() => handleLiberarResultados(quiz.id)}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors shadow-sm"
+                  >
+                    🔓 Liberar Notas e Gabaritos
+                  </button>
+                )}
 
                 <button 
                   onClick={() => handleDeleteQuiz(quiz.id)}

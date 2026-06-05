@@ -3,7 +3,15 @@ import { useState, useEffect } from 'react';
 export default function QuizPlayer({ quizId, onFinish }) {
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [respostas, setRespostas] = useState({}); // Guarda o que o aluno respondeu
+  const [respostas, setRespostas] = useState({}); 
+  const [tempoRestante, setTempoRestante] = useState(0); 
+
+  // 👇 1. A SOLUÇÃO: A função foi movida para o topo, antes de ser usada! 👇
+  const entregarProva = () => {
+    console.log("Respostas enviadas pelo aluno:", respostas);
+    alert("Prova entregue com sucesso!");
+    onFinish();
+  };
 
   useEffect(() => {
     const carregarProva = async () => {
@@ -12,6 +20,7 @@ export default function QuizPlayer({ quizId, onFinish }) {
         if (response.ok) {
           const data = await response.json();
           setQuiz(data);
+          setTempoRestante(data.duration * 60); 
         }
       } catch (error) {
         console.error("Erro ao carregar a prova", error);
@@ -23,8 +32,36 @@ export default function QuizPlayer({ quizId, onFinish }) {
     carregarProva();
   }, [quizId]);
 
+  // 👇 2. O MOTOR DO CRONÔMETRO REGRESSIVO 👇
+  useEffect(() => {
+    if (loading || !quiz) return;
+
+    if (tempoRestante <= 0) {
+      alert("⏱️ O tempo limite acabou! Sua prova foi finalizada e enviada automaticamente.");
+      entregarProva();
+      return;
+    }
+
+    const intervalo = setInterval(() => {
+      setTempoRestante((tempo) => tempo - 1);
+    }, 1000);
+
+    return () => clearInterval(intervalo);
+    
+    // 👇 O FEITIÇO: Avisa o React para ignorar o alerta da dependência e não travar o relógio
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tempoRestante, loading, quiz]);
+
   const handleSalvarResposta = (questionId, valor) => {
     setRespostas({ ...respostas, [questionId]: valor });
+  };
+
+  const formatarTempo = (segundosTotais) => {
+    const minutos = Math.floor(segundosTotais / 60);
+    const segundos = segundosTotais % 60;
+    const minsFormatados = String(minutos).padStart(2, '0');
+    const segsFormatados = String(segundos).padStart(2, '0');
+    return `${minsFormatados}:${segsFormatados}`;
   };
 
   if (loading) {
@@ -42,22 +79,27 @@ export default function QuizPlayer({ quizId, onFinish }) {
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-gray-200 mt-8 space-y-8">
-      {/* Cabeçalho da Prova */}
+      
+      {/* Cabeçalho da Prova com Cronômetro Dinâmico */}
       <div className="border-b border-gray-100 pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">{quiz.title}</h2>
-        <span className="bg-blue-50 text-blue-700 px-4 py-1 rounded-full text-sm font-bold">
-          Duração: {quiz.duration} min
+        
+        <span className={`px-4 py-2 rounded-xl text-base font-bold shadow-sm transition-all duration-300 ${
+          tempoRestante < 60 
+            ? 'bg-red-100 text-red-700 animate-pulse border border-red-200' 
+            : 'bg-blue-50 text-blue-700 border border-blue-100'
+        }`}>
+          ⏱️ Tempo restante: {formatarTempo(tempoRestante)}
         </span>
       </div>
 
-      {/* Listagem de Perguntas Reais */}
+      {/* Listagem de Perguntas */}
       <div className="space-y-6">
         {quiz.questions.map((q, index) => (
           <div key={q.id} className="p-5 bg-gray-50 rounded-xl border border-gray-100">
             <p className="font-bold text-gray-800 mb-3">Questão {index + 1}</p>
             <p className="text-gray-700 mb-4 whitespace-pre-wrap">{q.content}</p>
 
-            {/* Renderização conforme o Tipo de Questão */}
             {q.type === 'MULTIPLE_CHOICE' && (
               <div className="space-y-2">
                 {q.details.options.map((opcao, i) => (
@@ -104,13 +146,8 @@ export default function QuizPlayer({ quizId, onFinish }) {
         ))}
       </div>
 
-      {/* Botão de Finalizar */}
       <button 
-        onClick={() => {
-          console.log("Respostas enviadas pelo aluno:", respostas);
-          alert("Prova entregue com sucesso!");
-          onFinish();
-        }}
+        onClick={entregarProva}
         className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md"
       >
         Submeter / Entregar Prova

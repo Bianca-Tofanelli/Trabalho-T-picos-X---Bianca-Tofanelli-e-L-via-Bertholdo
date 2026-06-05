@@ -7,10 +7,31 @@ export default function QuizPlayer({ quizId, onFinish }) {
   const [tempoRestante, setTempoRestante] = useState(0); 
 
   // 👇 1. A SOLUÇÃO: A função foi movida para o topo, antes de ser usada! 👇
-  const entregarProva = () => {
-    console.log("Respostas enviadas pelo aluno:", respostas);
-    alert("Prova entregue com sucesso!");
-    onFinish();
+  const entregarProva = async () => {
+    try {
+      const studentId = localStorage.getItem('userId');
+
+      const response = await fetch(`/api/quizzes/${quizId}/submeter`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          studentId: studentId,
+          answers: respostas // Envia o objeto com tudo o que o aluno marcou
+        })
+      });
+
+      if (!response.ok) throw new Error('Erro ao registrar respostas.');
+
+      alert("🎉 Prova concluída e enviada com sucesso!");
+      onFinish(); // Retorna para o painel do aluno
+
+    } catch (error) {
+      console.error(error);
+      alert("Erro de conexão ao tentar entregar a prova.");
+    }
   };
 
   useEffect(() => {

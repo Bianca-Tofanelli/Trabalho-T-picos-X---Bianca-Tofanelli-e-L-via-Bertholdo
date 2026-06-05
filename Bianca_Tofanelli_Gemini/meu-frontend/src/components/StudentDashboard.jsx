@@ -5,25 +5,20 @@ export default function StudentDashboard({ onStartQuiz }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const userId = localStorage.getItem('userId');
+
   useEffect(() => {
     const buscarProvas = async () => {
       try {
-        // Chamando a nossa rota real do backend
-        const response = await fetch('/api/quizzes/disponiveis', {
+        // 👇 Chamando a nova rota inteligente passando o ID do aluno logado 👇
+        const response = await fetch(`/api/quizzes/dashboard/aluno/${userId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
 
-        if (!response.ok) throw new Error('Falha ao carregar as provas.');
+        if (!response.ok) throw new Error('Falha ao carregar as informações do painel.');
 
-        // O nosso backend atual devolve um array com todas as provas criadas
         const data = await response.json();
-
-        // Encaixamos as provas na sua estrutura inteligente
-        setDashboard({ 
-          available: data, 
-          completed: [], // Preparado para quando você criar o histórico de notas
-          missed: []     // Preparado para quando você criar o sistema de prazos
-        });
+        setDashboard(data); // Preenche as listas 'available' e 'completed' de uma vez!
       } catch (err) {
         setError(err.message);
       } finally {
@@ -31,16 +26,15 @@ export default function StudentDashboard({ onStartQuiz }) {
       }
     };
 
-    buscarProvas();
-  }, []);
+    if (userId) buscarProvas();
+  }, [userId]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
       <h1 className="text-3xl font-bold text-gray-900">Meu Painel</h1>
 
-      {/* Avisos de carregamento e erro */}
-      {loading && <p className="text-blue-600 font-medium">Carregando suas provas...</p>}
-      {error && <p className="text-red-600 bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
+      {loading && <p className="text-blue-600 font-medium">Carregando painel...</p>}
+      {error && <p className="text-red-600 bg-red-50 p-3 rounded-lg border">{error}</p>}
 
       {/* Seção 1: Provas Disponíveis */}
       <section>
@@ -50,7 +44,7 @@ export default function StudentDashboard({ onStartQuiz }) {
         
         {!loading && dashboard.available.length === 0 && (
           <p className="text-gray-500 bg-gray-50 p-4 rounded-lg border border-gray-100">
-            Nenhuma prova no momento.
+            Nenhuma prova pendente no momento. Ótimo trabalho!
           </p>
         )}
         
@@ -72,26 +66,40 @@ export default function StudentDashboard({ onStartQuiz }) {
         </div>
       </section>
 
-      {/* Seção 2: Provas Concluídas (Deixada pronta para o futuro) */}
-      <section className="opacity-70">
+      {/* Seção 2: Provas Concluídas */}
+      <section>
         <h2 className="text-xl font-bold text-blue-700 border-b-2 border-blue-100 pb-2 mb-4">
           Provas Concluídas
         </h2>
-        {dashboard.completed.length === 0 && (
-          <p className="text-gray-500 text-sm">Você ainda não concluiu nenhuma avaliação.</p>
+        
+        {!loading && dashboard.completed.length === 0 && (
+          <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">
+            Você ainda não concluiu nenhuma avaliação.
+          </p>
         )}
+
+        <div className="grid gap-4">
+          {dashboard.completed.map(quiz => (
+            <div key={quiz.id} className="p-5 bg-gray-50 border border-gray-200 rounded-xl flex justify-between items-center opacity-85 shadow-sm">
+              <div>
+                <h3 className="font-bold text-lg text-gray-700 line-through">{quiz.title}</h3>
+                <p className="text-sm text-green-600 font-semibold mt-1">✓ Status: Enviada para correção</p>
+              </div>
+              <span className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold text-sm">
+                Realizada
+              </span>
+            </div>
+          ))}
+        </div>
       </section>
 
-      {/* Seção 3: Provas Perdidas (Deixada pronta para o futuro) */}
-      <section className="opacity-70">
+      {/* Seção 3: Provas Perdidas */}
+      <section className="opacity-60">
         <h2 className="text-xl font-bold text-red-700 border-b-2 border-red-100 pb-2 mb-4">
           Provas Perdidas (Prazo Encerrado)
         </h2>
-        {dashboard.missed.length === 0 && (
-          <p className="text-gray-500 text-sm">Ótimo trabalho! Nenhuma prova perdida.</p>
-        )}
+        <p className="text-gray-500 text-sm">Nenhuma prova perdida.</p>
       </section>
-
     </div>
   );
 }

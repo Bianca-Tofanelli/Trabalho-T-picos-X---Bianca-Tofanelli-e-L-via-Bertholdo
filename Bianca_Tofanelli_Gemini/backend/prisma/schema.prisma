@@ -60,3 +60,10 @@ model QuizQuestion {
 
   @@id([quizId, questionId])
 }
+model Submission {
+  id        Int      @id @default(autoincrement())
+  studentId Int
+  quizId    Int
+  answers   String   // Guardará as respostas mapeadas como texto JSON
+  createdAt DateTime @default(now())
+}

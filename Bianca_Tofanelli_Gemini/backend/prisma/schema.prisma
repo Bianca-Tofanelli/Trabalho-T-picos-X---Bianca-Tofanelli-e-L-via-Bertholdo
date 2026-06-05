@@ -65,5 +65,7 @@ model Submission {
   studentId Int
   quizId    Int
   answers   String   // Guardará as respostas mapeadas como texto JSON
+  score     Float?   // A nota total (pode ser null até o professor corrigir)
+  status    String   @default("PENDING_REVIEW") // PENDING_REVIEW ou GRADED
   createdAt DateTime @default(now())
 }

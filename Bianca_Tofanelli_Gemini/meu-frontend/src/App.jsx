@@ -3,13 +3,13 @@ import Login from './components/Login';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
 import QuizCreator from './components/QuizCreator';
-
+import QuizPlayer from './components/QuizPlayer';
 function App() {
   // Inicialização direta para evitar avisos de performance do React
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole'));
   const [currentView, setCurrentView] = useState('home');
-
+  const [activeQuizId, setActiveQuizId] = useState(null);
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
@@ -82,8 +82,18 @@ function App() {
         {currentView === 'create' && <QuizCreator />}
         {currentView === 'teacher' && <TeacherDashboard />}
         {currentView === 'student' && (
-          <StudentDashboard onStartQuiz={(id) => alert(`Iniciando fluxo para o quiz: ${id}`)} />
-        )}
+       <StudentDashboard onStartQuiz={(id) => {
+         setActiveQuizId(id);
+         setCurrentView('taking_quiz'); // Troca a tela!
+       }} />
+     )}
+
+     {currentView === 'taking_quiz' && (
+       <QuizPlayer 
+         quizId={activeQuizId} 
+         onFinish={() => setCurrentView('student')} // Volta pro painel ao entregar
+       />
+     )}
       </main>
     </div>
   );

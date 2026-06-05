@@ -62,11 +62,11 @@ export default function QuizCreator() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        // Enviando os dados exatamente como o nosso Backend espera!
         body: JSON.stringify({
           title: quizData.title,
           duration: quizData.duration,
-          professorId: userId
+          professorId: userId,
+          questions: questions // 💡 ADICIONE ESTA LINHA AQUI!
         })
       });
 

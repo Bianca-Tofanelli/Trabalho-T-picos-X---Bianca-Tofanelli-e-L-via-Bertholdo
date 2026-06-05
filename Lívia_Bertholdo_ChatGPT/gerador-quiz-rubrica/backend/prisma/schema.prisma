@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PROFESSOR
+  ALUNO
+}
+
+enum QuizStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  DISSERTATIVE
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  FINISHED
+}
+
+model User {
+  id            String      @id @default(uuid())
+  name          String
+  email         String      @unique
+  passwordHash  String
+  role          UserRole
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  quizzes       Quiz[]
+  attempts      Attempt[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Quiz {
+  id              String        @id @default(uuid())
+
+  title           String
+  description     String?
+
+  status          QuizStatus    @default(DRAFT)
+
+  timeLimit       Int?
+  maxAttempts     Int           @default(1)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  professorId     String
+  professor       User          @relation(fields: [professorId], references: [id])
+
+  questions       Question[]
+  rubrics         Rubric[]
+  attempts        Attempt[]
+  reports         Report[]
+
+  @@index([professorId])
+  @@index([status])
+  @@map("quizzes")
+}
+
+model Question {
+  id              String          @id @default(uuid())
+
+  statement       String
+  points          Float           @default(1)
+
+  type            QuestionType
+
+  order           Int
+
+  createdAt       DateTime        @default(now())
+
+  quizId          String
+  quiz            Quiz            @relation(fields: [quizId], references: [id])
+
+  alternatives    Alternative[]
+  answers         Answer[]
+
+  @@index([quizId])
+  @@map("questions")
+}
+
+model Alternative {
+  id              String      @id @default(uuid())
+
+  text            String
+
+  isCorrect       Boolean     @default(false)
+
+  questionId      String
+  question        Question    @relation(fields: [questionId], references: [id])
+
+  @@index([questionId])
+  @@map("alternatives")
+}
+
+model Attempt {
+  id              String          @id @default(uuid())
+
+  startedAt       DateTime        @default(now())
+  finishedAt      DateTime?
+
+  score           Float?
+
+  status          AttemptStatus   @default(IN_PROGRESS)
+
+  studentId       String
+  student         User            @relation(fields: [studentId], references: [id])
+
+  quizId          String
+  quiz            Quiz            @relation(fields: [quizId], references: [id])
+
+  answers         Answer[]
+  feedbacks       Feedback[]
+
+  @@index([studentId])
+  @@index([quizId])
+  @@index([status])
+  @@map("attempts")
+}
+
+model Answer {
+  id                  String          @id @default(uuid())
+
+  textAnswer          String?
+
+  selectedAlternative String?
+
+  isCorrect           Boolean?
+
+  score               Float?
+
+  createdAt           DateTime        @default(now())
+
+  attemptId           String
+  attempt             Attempt         @relation(fields: [attemptId], references: [id])
+
+  questionId          String
+  question            Question        @relation(fields: [questionId], references: [id])
+
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("answers")
+}
+
+model Rubric {
+  id              String      @id @default(uuid())
+
+  title           String
+
+  description     String?
+
+  criteria        Json
+
+  maxScore        Float
+
+  createdAt       DateTime    @default(now())
+
+  quizId          String
+  quiz            Quiz        @relation(fields: [quizId], references: [id])
+
+  feedbacks       Feedback[]
+
+  @@index([quizId])
+  @@map("rubrics")
+}
+
+model Feedback {
+  id              String      @id @default(uuid())
+
+  overallScore    Float?
+
+  strengths       String?
+
+  weaknesses      String?
+
+  suggestions     String?
+
+  generatedAt     DateTime    @default(now())
+
+  attemptId       String
+  attempt         Attempt     @relation(fields: [attemptId], references: [id])
+
+  rubricId        String?
+  rubric          Rubric?     @relation(fields: [rubricId], references: [id])
+
+  @@index([attemptId])
+  @@index([rubricId])
+  @@map("feedbacks")
+}
+
+model Report {
+  id                  String      @id @default(uuid())
+
+  title               String
+
+  totalStudents       Int         @default(0)
+
+  averageScore        Float?
+
+  highestScore        Float?
+
+  lowestScore         Float?
+
+  generatedAt         DateTime    @default(now())
+
+  quizId              String
+  quiz                Quiz        @relation(fields: [quizId], references: [id])
+
+  @@index([quizId])
+  @@map("reports")
+}

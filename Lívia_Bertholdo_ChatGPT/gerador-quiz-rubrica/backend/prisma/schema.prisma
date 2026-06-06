@@ -42,6 +42,8 @@ model User {
   quizzes       Quiz[]
   attempts      Attempt[]
 
+  refreshTokens RefreshToken[]
+
   @@index([email])
   @@map("users")
 }
@@ -224,4 +226,20 @@ model Report {
 
   @@index([quizId])
   @@map("reports")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+
+  token       String   @unique
+
+  expiresAt   DateTime
+
+  createdAt   DateTime @default(now())
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }

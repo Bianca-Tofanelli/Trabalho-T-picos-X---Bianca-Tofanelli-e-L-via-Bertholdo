@@ -44,13 +44,25 @@ export default function QuizCreator() {
     }));
   };
 
-  // 👇 SOMA INTELIGENTE DOS PONTOS 👇
   const somaDosPontos = questions.reduce((acc, q) => acc + Number(q.details.peso || 0), 0);
 
+  // 👇 VERIFICAÇÕES DE SEGURANÇA E DATAS 👇
   const handleSaveQuiz = async () => {
-    if (!quizData.title) return alert('Preencha pelo menos o título da prova!');
+    if (!quizData.title) {
+      return alert('Preencha o título da prova!');
+    }
+    if (!quizData.startDate) {
+      return alert('Escolha a data e horário de INÍCIO da disponibilidade da prova!');
+    }
+    if (!quizData.endDate) {
+      return alert('Escolha a data e horário de FIM da disponibilidade da prova!');
+    }
     
-    // 👇 TRAVA DE SEGURANÇA: Só salva se for EXATAMENTE 10.0 👇
+    // Verifica se o professor não colocou o fim ANTES do início
+    if (new Date(quizData.startDate) >= new Date(quizData.endDate)) {
+      return alert('Ops! A data de encerramento da prova deve ser DEPOIS da data de início.');
+    }
+
     if (somaDosPontos !== 10) {
       return alert(`A soma dos pesos das questões é ${somaDosPontos.toFixed(1)}. Ela precisa ser EXATAMENTE 10.0 para você poder salvar a prova!`);
     }
@@ -58,8 +70,8 @@ export default function QuizCreator() {
     setIsSaving(true);
     try {
       const userId = localStorage.getItem('userId');
-      const dataInicioFormatada = quizData.startDate ? new Date(quizData.startDate).toISOString() : null;
-      const dataFimFormatada = quizData.endDate ? new Date(quizData.endDate).toISOString() : null;
+      const dataInicioFormatada = new Date(quizData.startDate).toISOString();
+      const dataFimFormatada = new Date(quizData.endDate).toISOString();
 
       const response = await fetch('/api/quizzes', {
         method: 'POST',
@@ -100,7 +112,7 @@ export default function QuizCreator() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">Título da Prova</label>
+            <label className="block text-sm font-medium text-gray-700">Título da Prova *</label>
             <input 
               type="text" className="mt-1 w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
               placeholder="Ex: Prova Bimestral de História" value={quizData.title}
@@ -108,11 +120,11 @@ export default function QuizCreator() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Início da Disponibilidade</label>
+            <label className="block text-sm font-medium text-gray-700">Início da Disponibilidade *</label>
             <input type="datetime-local" className="mt-1 w-full p-2 border rounded" value={quizData.startDate} onChange={e => setQuizData({...quizData, startDate: e.target.value})} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Fim da Disponibilidade</label>
+            <label className="block text-sm font-medium text-gray-700">Fim da Disponibilidade *</label>
             <input type="datetime-local" className="mt-1 w-full p-2 border rounded" value={quizData.endDate} onChange={e => setQuizData({...quizData, endDate: e.target.value})} />
           </div>
           <div>
@@ -210,7 +222,6 @@ export default function QuizCreator() {
           <button onClick={() => addQuestion('ESSAY')} className="bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium">+ Dissertativa</button>
         </div>
         
-        {/* 👇 BOTÃO INTELIGENTE: Fica cinza se a soma não for 10 👇 */}
         <button 
           onClick={handleSaveQuiz} 
           disabled={isSaving || somaDosPontos !== 10} 

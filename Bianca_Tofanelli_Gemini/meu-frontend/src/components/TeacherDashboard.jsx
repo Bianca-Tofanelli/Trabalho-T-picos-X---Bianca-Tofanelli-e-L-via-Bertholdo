@@ -7,12 +7,11 @@ export default function TeacherDashboard() {
   const [error, setError] = useState('');
   
   const [notasExpandidas, setNotasExpandidas] = useState({});
-  const [agora, setAgora] = useState(new Date()); // Relógio em tempo real
+  const [agora, setAgora] = useState(new Date());
 
   const userId = localStorage.getItem('userId');
 
   useEffect(() => {
-    // Atualiza o relógio da página a cada 1 minuto para a contagem regressiva funcionar
     const intervalo = setInterval(() => setAgora(new Date()), 60000);
     return () => clearInterval(intervalo);
   }, []);
@@ -36,7 +35,6 @@ export default function TeacherDashboard() {
     if (userId) carregarPainel();
   }, [userId]);
 
-  // 👇 FUNÇÕES PARA CALCULAR O TEMPO VISUALMENTE 👇
   const formatarTempo = (dataAlvo) => {
     const diff = new Date(dataAlvo) - agora;
     if (diff <= 0) return "0 minutos";
@@ -112,16 +110,21 @@ export default function TeacherDashboard() {
     }
   };
 
+  // 👇 FUNÇÃO DE AVALIAR ATUALIZADA COM TRAVA DE NOTA 👇
   const handleAvaliar = async (submissaoId, acertosAutomaticos, dissertativasDoAluno) => {
-    // Calcula quanto vale todas as dissertativas somadas dessa prova
     const totalPossivel = dissertativasDoAluno.reduce((acc, curr) => acc + curr.pesoMaximo, 0);
 
-    const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos.toFixed(1)} pontos.\nA(s) questão(ões) dissertativa(s) do aluno vale(m) no máximo ${totalPossivel.toFixed(1)} pontos no total.\n\nQuantos pontos você dá para ele?`);
+    const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos.toFixed(1)} pontos.\nA(s) questão(ões) dissertativa(s) do aluno vale(m) no máximo ${totalPossivel.toFixed(1)} pontos.\n\nQuantos pontos você dá para ele?`);
     
     if (notaStr === null) return; 
     
     const nota = parseFloat(notaStr.replace(',', '.')); 
     if (isNaN(nota)) return alert("Por favor, digite um número válido!");
+
+    // 🚨 TRAVA DE SEGURANÇA: Não deixa passar de 10 nem dar nota negativa 🚨
+    if (nota < 0 || nota > totalPossivel) {
+      return alert(`⚠️ Ação bloqueada: A nota atribuída deve ser entre 0 e ${totalPossivel.toFixed(1)}!`);
+    }
 
     try {
       const res = await fetch(`/api/quizzes/submissao/${submissaoId}/avaliar`, {
@@ -137,6 +140,7 @@ export default function TeacherDashboard() {
       alert("Erro de conexão ao salvar a nota.");
     }
   };
+
   const toggleNotas = async (quizId) => {
     if (notasExpandidas[quizId]) {
       const novoEstado = { ...notasExpandidas };
@@ -191,16 +195,22 @@ export default function TeacherDashboard() {
 
               {pendencia.dissertativas.map((diss, index) => (
                 <div key={index} className="mb-6 bg-white p-4 rounded-xl border border-gray-100">
-                  <p className="font-bold text-gray-800 mb-2">Pergunta:</p>
+                  <p className="font-bold text-gray-800 mb-2">Pergunta <span className="text-gray-400 font-normal text-sm">(Vale {diss.pesoMaximo.toFixed(1)} pts)</span>:</p>
                   <p className="text-gray-700 mb-4 whitespace-pre-wrap">{diss.enunciado}</p>
+                  
+                  <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm border border-blue-100">
+                    <span className="font-bold text-blue-800">Sua Rubrica de Correção: </span>
+                    <span className="text-blue-700">{diss.rubrica || "Sem rubrica cadastrada."}</span>
+                  </div>
+
                   <p className="font-bold text-gray-800 mb-2">Resposta do Aluno:</p>
                   <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200">{diss.respostaDoAluno}</p>
                 </div>
               ))}
 
               <button 
-              onClick={() => handleAvaliar(pendencia.submissaoId, pendencia.acertosAutomaticos, pendencia.dissertativas)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm"
+                onClick={() => handleAvaliar(pendencia.submissaoId, pendencia.acertosAutomaticos, pendencia.dissertativas)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm"
               >
                 Atribuir Nota da Dissertativa e Finalizar
               </button>
@@ -211,7 +221,7 @@ export default function TeacherDashboard() {
 
       <hr className="border-gray-200" />
 
-      {/* SEÇÃO 2: RELATÓRIO GERAL DE PROVAS COM MÉTRICAS */}
+      {/* SEÇÃO 2: RELATÓRIO GERAL */}
       <div>
         <h2 className="text-2xl font-bold mb-6 text-gray-800">Relatório Geral da Turma</h2>
         <div className="grid gap-6 md:grid-cols-2">
@@ -231,13 +241,11 @@ export default function TeacherDashboard() {
                     </span>
                   </div>
                   
-                  {/* Tempo Restante */}
                   <div className="mb-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
                     <p className="text-sm font-bold text-gray-700">{status.texto}</p>
                     <p className="text-xs text-gray-500 mt-1">Duração da prova: {quiz.duration} minutos</p>
                   </div>
 
-                  {/* Barra de Engajamento */}
                   <div className="mb-6">
                     <div className="flex justify-between text-sm font-bold text-gray-700 mb-1">
                       <span>Respostas: {respostas} de {total} alunos</span>
@@ -252,7 +260,6 @@ export default function TeacherDashboard() {
                   </div>
                 </div>
 
-                {/* Botões de Ação */}
                 <div className="flex flex-col gap-3 mt-auto">
                   <button onClick={() => toggleNotas(quiz.id)} className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 px-4 rounded-xl transition-colors border border-blue-200">
                     {notasExpandidas[quiz.id] ? 'Ocultar Notas' : 'Ver Notas da Turma'}

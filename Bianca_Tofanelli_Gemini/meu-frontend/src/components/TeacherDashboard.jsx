@@ -7,8 +7,15 @@ export default function TeacherDashboard() {
   const [error, setError] = useState('');
   
   const [notasExpandidas, setNotasExpandidas] = useState({});
+  const [agora, setAgora] = useState(new Date()); // Relógio em tempo real
 
   const userId = localStorage.getItem('userId');
+
+  useEffect(() => {
+    // Atualiza o relógio da página a cada 1 minuto para a contagem regressiva funcionar
+    const intervalo = setInterval(() => setAgora(new Date()), 60000);
+    return () => clearInterval(intervalo);
+  }, []);
 
   useEffect(() => {
     const carregarPainel = async () => {
@@ -28,6 +35,33 @@ export default function TeacherDashboard() {
 
     if (userId) carregarPainel();
   }, [userId]);
+
+  // 👇 FUNÇÕES PARA CALCULAR O TEMPO VISUALMENTE 👇
+  const formatarTempo = (dataAlvo) => {
+    const diff = new Date(dataAlvo) - agora;
+    if (diff <= 0) return "0 minutos";
+    
+    const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const horas = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (dias > 0) return `${dias} dia(s) e ${horas}h`;
+    if (horas > 0) return `${horas}h e ${minutos}m`;
+    return `${minutos} minuto(s)`;
+  };
+
+  const getStatusProva = (startDate, endDate) => {
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+
+    if (start && agora < start) {
+      return { label: 'Agendada', cor: 'text-yellow-700 bg-yellow-100 border-yellow-300', icon: '⏳', texto: `Abre em: ${formatarTempo(start)}` };
+    }
+    if (end && agora > end) {
+      return { label: 'Encerrada', cor: 'text-gray-700 bg-gray-100 border-gray-300', icon: '🏁', texto: 'O prazo final já passou.' };
+    }
+    return { label: 'Em Andamento', cor: 'text-green-700 bg-green-100 border-green-300', icon: '🟢', texto: `Encerra em: ${formatarTempo(end)}` };
+  };
 
   const handleDownloadCSV = async (quizId) => {
     try {
@@ -112,7 +146,7 @@ export default function TeacherDashboard() {
         setNotasExpandidas({ ...notasExpandidas, [quizId]: notas });
       }
     } catch (err) {
-      console.error(err); // 💡 Corrigido: O ESLint agora vai ficar feliz!
+      console.error(err);
       alert("Não foi possível carregar as notas no momento.");
     }
   };
@@ -154,12 +188,6 @@ export default function TeacherDashboard() {
                 <div key={index} className="mb-6 bg-white p-4 rounded-xl border border-gray-100">
                   <p className="font-bold text-gray-800 mb-2">Pergunta:</p>
                   <p className="text-gray-700 mb-4 whitespace-pre-wrap">{diss.enunciado}</p>
-                  
-                  <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm border border-blue-100">
-                    <span className="font-bold text-blue-800">Sua Rubrica de Correção: </span>
-                    <span className="text-blue-700">{diss.rubrica || "Sem rubrica cadastrada."}</span>
-                  </div>
-
                   <p className="font-bold text-gray-800 mb-2">Resposta do Aluno:</p>
                   <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200">{diss.respostaDoAluno}</p>
                 </div>
@@ -178,80 +206,94 @@ export default function TeacherDashboard() {
 
       <hr className="border-gray-200" />
 
-      {/* SEÇÃO 2: RELATÓRIO GERAL DE PROVAS (COM VISUALIZAÇÃO DE NOTAS NA TELA) */}
+      {/* SEÇÃO 2: RELATÓRIO GERAL DE PROVAS COM MÉTRICAS */}
       <div>
         <h2 className="text-2xl font-bold mb-6 text-gray-800">Relatório Geral da Turma</h2>
         <div className="grid gap-6 md:grid-cols-2">
-          {quizzes.map((quiz) => (
-            <div key={quiz.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-              <h2 className="text-xl font-bold mb-2 text-gray-900">{quiz.title}</h2>
-              <p className="text-gray-600 mb-6 font-medium">Duração: {quiz.duration} minutos</p>
-              
-              <div className="flex flex-col gap-3">
-                
-                <button 
-                  onClick={() => toggleNotas(quiz.id)}
-                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors border border-blue-200"
-                >
-                  {notasExpandidas[quiz.id] ? 'Ocultar Notas' : 'Ver Notas da Turma'}
-                </button>
+          {quizzes.map((quiz) => {
+            const status = getStatusProva(quiz.startDate, quiz.endDate);
+            const total = quiz.totalAlunos || 0;
+            const respostas = quiz.totalRespostas || 0;
+            const progresso = total > 0 ? Math.round((respostas / total) * 100) : 0;
 
-                {notasExpandidas[quiz.id] && (
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2 mb-2">
-                    <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">Pontuações:</h4>
-                    {notasExpandidas[quiz.id].length === 0 ? (
-                      <p className="text-sm text-gray-500 italic">Nenhum aluno realizou esta prova ainda.</p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {notasExpandidas[quiz.id].map(nota => (
-                          <li key={nota.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-100">
-                            <span className="text-gray-700">Aluno ID: <strong>{nota.studentId}</strong></span>
-                            {nota.status === 'GRADED' ? (
-                              <span className="font-bold text-green-600">{nota.score} pts</span>
-                            ) : (
-                              <span className="font-medium text-orange-500 italic">Pendente</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+            return (
+              <div key={quiz.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <h2 className="text-xl font-bold text-gray-900 leading-tight">{quiz.title}</h2>
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full border ${status.cor} flex items-center whitespace-nowrap ml-3`}>
+                      <span className="mr-1">{status.icon}</span> {status.label}
+                    </span>
+                  </div>
+                  
+                  {/* Tempo Restante */}
+                  <div className="mb-6 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-sm font-bold text-gray-700">{status.texto}</p>
+                    <p className="text-xs text-gray-500 mt-1">Duração da prova: {quiz.duration} minutos</p>
+                  </div>
+
+                  {/* Barra de Engajamento */}
+                  <div className="mb-6">
+                    <div className="flex justify-between text-sm font-bold text-gray-700 mb-1">
+                      <span>Respostas: {respostas} de {total} alunos</span>
+                      <span>{progresso}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div className="bg-blue-500 h-3 rounded-full transition-all duration-500" style={{ width: `${progresso}%` }}></div>
+                    </div>
+                    {total - respostas > 0 && status.label !== 'Encerrada' && (
+                      <p className="text-xs text-orange-600 font-medium mt-1">Faltam {total - respostas} alunos entregarem.</p>
                     )}
                   </div>
-                )}
+                </div>
 
-                <button 
-                  onClick={() => handleDownloadCSV(quiz.id)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Baixar Relatório (CSV)
-                </button>
-
-                {quiz.releaseMode === 'MANUAL' && !quiz.isReleased && (
-                  <button 
-                    onClick={() => handleLiberarResultados(quiz.id)}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors shadow-sm"
-                  >
-                    🔓 Liberar Notas e Gabaritos
+                {/* Botões de Ação */}
+                <div className="flex flex-col gap-3 mt-auto">
+                  <button onClick={() => toggleNotas(quiz.id)} className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-3 px-4 rounded-xl transition-colors border border-blue-200">
+                    {notasExpandidas[quiz.id] ? 'Ocultar Notas' : 'Ver Notas da Turma'}
                   </button>
-                )}
 
-                <button 
-                  onClick={() => handleDeleteQuiz(quiz.id)}
-                  className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors border border-red-200"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Excluir Prova
-                </button>
+                  {notasExpandidas[quiz.id] && (
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2 mb-2">
+                      <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-2">Pontuações:</h4>
+                      {notasExpandidas[quiz.id].length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">Nenhum aluno realizou esta prova ainda.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {notasExpandidas[quiz.id].map(nota => (
+                            <li key={nota.id} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-100">
+                              <span className="text-gray-700">Aluno ID: <strong>{nota.studentId}</strong></span>
+                              {nota.status === 'GRADED' ? (
+                                <span className="font-bold text-green-600">{nota.score} pts</span>
+                              ) : (
+                                <span className="font-medium text-orange-500 italic">Pendente</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  <button onClick={() => handleDownloadCSV(quiz.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors">
+                    Baixar Relatório (CSV)
+                  </button>
+
+                  {quiz.releaseMode === 'MANUAL' && !quiz.isReleased && (
+                    <button onClick={() => handleLiberarResultados(quiz.id)} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">
+                      🔓 Liberar Notas
+                    </button>
+                  )}
+
+                  <button onClick={() => handleDeleteQuiz(quiz.id)} className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-4 rounded-xl transition-colors border border-red-200">
+                    Excluir Prova
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
-
     </div>
   );
 }

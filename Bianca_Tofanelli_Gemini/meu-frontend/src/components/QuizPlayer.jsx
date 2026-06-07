@@ -6,7 +6,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
   const [respostas, setRespostas] = useState({}); 
   const [tempoRestante, setTempoRestante] = useState(0); 
 
-  // 👇 1. A SOLUÇÃO: A função foi movida para o topo, antes de ser usada! 👇
   const entregarProva = async () => {
     try {
       const studentId = localStorage.getItem('userId');
@@ -19,14 +18,14 @@ export default function QuizPlayer({ quizId, onFinish }) {
         },
         body: JSON.stringify({
           studentId: studentId,
-          answers: respostas // Envia o objeto com tudo o que o aluno marcou
+          answers: respostas 
         })
       });
 
       if (!response.ok) throw new Error('Erro ao registrar respostas.');
 
       alert("🎉 Prova concluída e enviada com sucesso!");
-      onFinish(); // Retorna para o painel do aluno
+      onFinish(); 
 
     } catch (error) {
       console.error(error);
@@ -41,7 +40,26 @@ export default function QuizPlayer({ quizId, onFinish }) {
         if (response.ok) {
           const data = await response.json();
           setQuiz(data);
-          setTempoRestante(data.duration * 60); 
+          
+          // 👇 O JUIZ IMPLACÁVEL DO TEMPO 👇
+          const duracaoEmSegundos = data.duration * 60;
+          let tempoFinal = duracaoEmSegundos;
+
+          // Se a prova tem data para fechar, checa quanto tempo falta até ela
+          if (data.endDate) {
+            const dataFim = new Date(data.endDate).getTime();
+            const agora = new Date().getTime();
+            const segundosAteFimDaProva = Math.floor((dataFim - agora) / 1000);
+
+            // O tempo do aluno será o MENOR entre a duração e o tempo até fechar
+            if (segundosAteFimDaProva > 0) {
+              tempoFinal = Math.min(duracaoEmSegundos, segundosAteFimDaProva);
+            } else {
+              tempoFinal = 0; // Se já passou da hora, começa zerado e envia na hora
+            }
+          }
+
+          setTempoRestante(tempoFinal); 
         }
       } catch (error) {
         console.error("Erro ao carregar a prova", error);
@@ -53,7 +71,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
     carregarProva();
   }, [quizId]);
 
-  // 👇 2. O MOTOR DO CRONÔMETRO REGRESSIVO 👇
   useEffect(() => {
     if (loading || !quiz) return;
 
@@ -69,7 +86,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
 
     return () => clearInterval(intervalo);
     
-    // 👇 O FEITIÇO: Avisa o React para ignorar o alerta da dependência e não travar o relógio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tempoRestante, loading, quiz]);
 
@@ -78,10 +94,16 @@ export default function QuizPlayer({ quizId, onFinish }) {
   };
 
   const formatarTempo = (segundosTotais) => {
-    const minutos = Math.floor(segundosTotais / 60);
+    const horas = Math.floor(segundosTotais / 3600);
+    const minutos = Math.floor((segundosTotais % 3600) / 60);
     const segundos = segundosTotais % 60;
+    
     const minsFormatados = String(minutos).padStart(2, '0');
     const segsFormatados = String(segundos).padStart(2, '0');
+    
+    if (horas > 0) {
+      return `${String(horas).padStart(2, '0')}:${minsFormatados}:${segsFormatados}`;
+    }
     return `${minsFormatados}:${segsFormatados}`;
   };
 

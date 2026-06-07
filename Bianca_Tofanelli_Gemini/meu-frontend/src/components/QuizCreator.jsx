@@ -3,7 +3,6 @@ import { useState } from 'react';
 export default function QuizCreator() {
   const [isSaving, setIsSaving] = useState(false);
   
-  // Substituímos o antigo "feedbackStrategy" pelo "releaseMode" oficial
   const [quizData, setQuizData] = useState({
     title: '',
     duration: 60,
@@ -14,17 +13,16 @@ export default function QuizCreator() {
 
   const [questions, setQuestions] = useState([]);
 
-  // Adiciona uma nova questão em branco à lista
   const addQuestion = (type) => {
     const newQuestion = {
-      id: Date.now(), // ID temporário apenas para o React
+      id: Date.now(), 
       content: '',
       type: type,
       details: type === 'MULTIPLE_CHOICE' 
         ? { options: ['', '', '', ''], correctOptionIndex: 0 } 
         : type === 'TRUE_FALSE' 
           ? { correctAnswer: true } 
-          : { keywords: [], rubric: '' } // Para dissertativas
+          : { keywords: [], rubric: '' } 
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -33,12 +31,10 @@ export default function QuizCreator() {
     setQuestions(questions.filter(q => q.id !== id));
   };
 
-  // Atualiza um campo específico de uma questão
   const updateQuestion = (id, field, value) => {
     setQuestions(questions.map(q => q.id === id ? { ...q, [field]: value } : q));
   };
 
-  // Atualiza os "detalhes" (como opções ou gabarito) de uma questão
   const updateQuestionDetails = (id, detailsField, value) => {
     setQuestions(questions.map(q => {
       if (q.id === id) {
@@ -48,7 +44,6 @@ export default function QuizCreator() {
     }));
   };
 
-  // 👇 AQUI ESTÁ A MÁGICA: A FUNÇÃO CONECTADA AO BANCO DE DADOS 👇
   const handleSaveQuiz = async () => {
     if (!quizData.title) {
       return alert('Preencha pelo menos o título da prova!');
@@ -57,6 +52,10 @@ export default function QuizCreator() {
     setIsSaving(true);
     try {
       const userId = localStorage.getItem('userId');
+
+      // 👇 TRADUÇÃO DE FUSO HORÁRIO (Transforma no padrão universal antes de enviar)
+      const dataInicioFormatada = quizData.startDate ? new Date(quizData.startDate).toISOString() : null;
+      const dataFimFormatada = quizData.endDate ? new Date(quizData.endDate).toISOString() : null;
 
       const response = await fetch('/api/quizzes', {
         method: 'POST',
@@ -67,8 +66,10 @@ export default function QuizCreator() {
         body: JSON.stringify({
           title: quizData.title,
           duration: quizData.duration,
+          startDate: dataInicioFormatada, // Envia a data com fuso horário cravado
+          endDate: dataFimFormatada,      // Envia a data final blindada
           professorId: userId,
-          releaseMode: quizData.releaseMode, // 👈 Envia a configuração pro backend
+          releaseMode: quizData.releaseMode, 
           questions: questions
         })
       });
@@ -79,7 +80,6 @@ export default function QuizCreator() {
 
       alert('Prova criada e salva no sistema com sucesso!');
       
-      // Limpa os campos para o professor poder criar uma nova prova
       setQuizData({ title: '', duration: 60, startDate: '', endDate: '', releaseMode: 'IMMEDIATE' });
       setQuestions([]);
 
@@ -96,7 +96,6 @@ export default function QuizCreator() {
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">Criar Nova Prova</h1>
         
-        {/* Configurações Gerais da Prova */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700">Título da Prova</label>
@@ -135,8 +134,6 @@ export default function QuizCreator() {
               onChange={e => setQuizData({...quizData, duration: e.target.value})}
             />
           </div>
-
-          {/* 👇 CAMPO DE LIBERAÇÃO ATUALIZADO AQUI 👇 */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Liberação de Resultados</label>
             <select 
@@ -152,7 +149,6 @@ export default function QuizCreator() {
         </div>
       </div>
 
-      {/* Lista de Questões */}
       <div className="space-y-6">
         <h2 className="text-xl font-bold text-gray-800">Questões ({questions.length})</h2>
         
@@ -174,7 +170,6 @@ export default function QuizCreator() {
               onChange={e => updateQuestion(q.id, 'content', e.target.value)}
             />
 
-            {/* Renderização condicional baseada no tipo da questão */}
             {q.type === 'MULTIPLE_CHOICE' && (
               <div className="space-y-2">
                 {q.details.options.map((opt, i) => (
@@ -239,7 +234,6 @@ export default function QuizCreator() {
         ))}
       </div>
 
-      {/* Botões de Ação */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 border border-gray-200 shadow-sm rounded-xl gap-4">
         <div className="flex flex-wrap gap-2">
           <button onClick={() => addQuestion('MULTIPLE_CHOICE')} className="bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-100 text-sm font-medium transition-colors">+ Múltipla Escolha</button>

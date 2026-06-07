@@ -43,31 +43,38 @@ export default function QuizResult({ quizId, onBack }) {
       <div className="space-y-6">
         {prova.questions.map((q, index) => {
           const respostaAluno = entrega.respostas[q.id];
-          const acertou = respostaAluno?.isCorrect;
+          
+          // 👇 O DETECTOR DE QUESTÃO EM BRANCO 👇
+          const emBranco = !respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || respostaAluno.valor === "";
+          
+          // Só considera que "errou" se ele de fato tiver respondido algo e estiver errado.
+          const acertou = !emBranco && respostaAluno?.isCorrect;
 
           return (
-            <div key={q.id} className={`p-5 rounded-xl border-2 ${acertou === true ? 'border-green-300 bg-green-50' : acertou === false ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'}`}>
+            <div key={q.id} className={`p-5 rounded-xl border-2 ${acertou === true ? 'border-green-300 bg-green-50' : emBranco ? 'border-gray-300 bg-gray-50' : 'border-red-300 bg-red-50'}`}>
               <p className="font-bold text-gray-800 mb-3 flex items-center gap-2">
                 Questão {index + 1}
                 {acertou === true && <span className="text-green-600">✅ Acertou</span>}
-                {acertou === false && <span className="text-red-600">❌ Errou</span>}
+                {acertou === false && !emBranco && <span className="text-red-600">❌ Errou</span>}
+                {emBranco && <span className="text-gray-500 font-bold">⚪ Deixou em branco (0 pts)</span>}
               </p>
               
               <p className="text-gray-700 mb-4 whitespace-pre-wrap">{q.content}</p>
 
               <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
                 <p className="text-sm text-gray-500 font-bold uppercase">Sua Resposta:</p>
-                <p className={`font-medium ${acertou === false ? 'text-red-600' : 'text-gray-800'}`}>
-                  {q.type === 'MULTIPLE_CHOICE' ? q.details.options[respostaAluno?.valor] : 
-                   q.type === 'TRUE_FALSE' ? (respostaAluno?.valor ? 'Verdadeiro' : 'Falso') : 
-                   respostaAluno?.valor}
+                <p className={`font-medium ${emBranco ? 'text-gray-500 italic' : (acertou === false ? 'text-red-600' : 'text-gray-800')}`}>
+                  {emBranco ? 'Você não respondeu esta questão.' : 
+                   (q.type === 'MULTIPLE_CHOICE' ? q.details.options[respostaAluno?.valor] : 
+                    q.type === 'TRUE_FALSE' ? (respostaAluno?.valor ? 'Verdadeiro' : 'Falso') : 
+                    respostaAluno?.valor)}
                 </p>
 
-                {/* Exibe o gabarito oficial se o aluno tiver errado ou se for dissertativa */}
-                {(acertou === false || q.type === 'ESSAY') && (
+                {/* Exibe o gabarito se o aluno errou, deixou em branco ou se for dissertativa */}
+                {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">
-                      {q.type === 'ESSAY' ? 'Rubrica/Gabarito Esperado:' : 'Resposta Correta:'}
+                      {q.type === 'ESSAY' ? 'Rubrica/Gabarito Esperado:' : 'Resposta Correta (Não pontuada):'}
                     </p>
                     <p className="font-medium text-green-800">
                       {q.type === 'MULTIPLE_CHOICE' ? q.details.options[q.details.correctOptionIndex] : 
@@ -82,7 +89,7 @@ export default function QuizResult({ quizId, onBack }) {
         })}
       </div>
 
-      <button onClick={onBack} className="mt-8 w-full bg-gray-800 text-white font-bold py-3 rounded-xl">
+      <button onClick={onBack} className="mt-8 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl transition-colors">
         Voltar para o Painel
       </button>
     </div>

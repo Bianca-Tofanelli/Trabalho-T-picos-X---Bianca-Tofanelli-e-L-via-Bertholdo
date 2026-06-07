@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 2. DASHBOARD DO ALUNO
+// 2. DASHBOARD DO ALUNO (Atualizado com filtros dinâmicos de início e fim de prazo)
 router.get('/dashboard/aluno/:studentId', async (req, res) => {
   try {
     const idAluno = parseInt(req.params.studentId);
@@ -48,14 +48,31 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
     const submissoes = await prisma.submission.findMany({ where: { studentId: idAluno } });
 
     const idsProvasFeitas = submissoes.map(s => s.quizId);
-    const available = todasProvas.filter(q => !idsProvasFeitas.includes(q.id));
+    
+    // Filtra as provas que o aluno ainda não realizou
+    const naoFeitas = todasProvas.filter(q => !idsProvasFeitas.includes(q.id));
+    
+    const now = new Date();
+
+    // Provas Disponíveis: Prazo já começou e ainda não expirou
+    const available = naoFeitas.filter(q => {
+      const inicio = q.startDate ? new Date(q.startDate) : null;
+      const fim = q.endDate ? new Date(q.endDate) : null;
+      return (!inicio || now >= inicio) && (!fim || now <= fim);
+    });
+
+    // Provas Perdidas: O aluno não fez e a data limite já passou
+    const missed = naoFeitas.filter(q => {
+      const fim = q.endDate ? new Date(q.endDate) : null;
+      return fim && now > fim;
+    });
     
     const completed = submissoes.map(sub => {
       const quiz = todasProvas.find(q => q.id === sub.quizId);
       
       let liberado = false;
       if (quiz.feedbackStrategy === 'IMMEDIATE') liberado = true;
-      if ((quiz.feedbackStrategy === 'AFTER_CLOSE' || quiz.feedbackStrategy === 'AFTER_DEADLINE') && new Date() > new Date(quiz.endDate)) liberado = true;
+      if ((quiz.feedbackStrategy === 'AFTER_CLOSE' || quiz.feedbackStrategy === 'AFTER_DEADLINE') && now > new Date(quiz.endDate)) liberado = true;
 
       return {
         id: quiz.id,
@@ -66,7 +83,7 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
       };
     });
 
-    res.json({ available, completed, missed: [] });
+    res.json({ available, completed, missed });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao carregar o painel.' });
   }
@@ -147,7 +164,7 @@ router.get('/:id/resultado/:studentId', async (req, res) => {
   }
 });
 
-// 5. BUSCAR PROVA PARA RESPONDER (ANTI-COLA)
+// 5. BUSCAR PROVA PARA RESPONDER (🛡️ ANTI-COLA + TRAVA CRONOLÓGICA DE SEGURANÇA 🛡️)
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -156,6 +173,15 @@ router.get('/:id', async (req, res) => {
       include: { questions: { include: { question: true } } } 
     });
     if (!prova) return res.status(404).json({ error: 'Prova não encontrada.' });
+
+    // Bloqueia o acesso caso tentem burlar a requisição fora do horário permitido
+    const now = new Date();
+    if (prova.startDate && now < new Date(prova.startDate)) {
+      return res.status(403).json({ error: 'Esta prova ainda não está disponível para realização.' });
+    }
+    if (prova.endDate && now > new Date(prova.endDate)) {
+      return res.status(403).json({ error: 'O período de realização desta prova já se encerrou.' });
+    }
 
     res.json({
       ...prova,
@@ -243,17 +269,29 @@ router.post('/submissao/:id/avaliar', async (req, res) => {
   }
 });
 
-// 9. PROFESSOR LER SUAS PROVAS 
+// 9. PROFESSOR LER SUAS PROVAS (Agora com contador de alunos e respostas)
 router.get('/professor/:professorId', async (req, res) => {
   try {
     const provas = await prisma.quiz.findMany({
       where: { professorId: parseInt(req.params.professorId) }
     });
-    const provasFormatadas = provas.map(q => ({
-      ...q,
-      releaseMode: q.feedbackStrategy,
-      isReleased: q.feedbackStrategy === 'IMMEDIATE'
+
+    // Conta o total de alunos no sistema
+    const totalAlunos = await prisma.user.count({ where: { role: 'ALUNO' } });
+
+    // Conta quantas respostas cada prova já teve
+    const provasFormatadas = await Promise.all(provas.map(async (q) => {
+      const totalRespostas = await prisma.submission.count({ where: { quizId: q.id } });
+      
+      return {
+        ...q,
+        releaseMode: q.feedbackStrategy,
+        isReleased: q.feedbackStrategy === 'IMMEDIATE',
+        totalRespostas,
+        totalAlunos
+      };
     }));
+
     res.json(provasFormatadas);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar provas.' });
@@ -278,12 +316,12 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// 👇 11. NOVA ROTA: BUSCAR AS NOTAS DE UMA PROVA 👇
+// 11. BUSCAR AS NOTAS DE UMA PROVA
 router.get('/:id/notas', async (req, res) => {
   try {
     const notas = await prisma.submission.findMany({
       where: { quizId: parseInt(req.params.id) },
-      select: { id: true, studentId: true, score: true, status: true } // Puxa só as informações de nota
+      select: { id: true, studentId: true, score: true, status: true }
     });
     res.json(notas);
   } catch (error) {

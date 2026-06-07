@@ -10,7 +10,7 @@ export default function StudentDashboard({ onStartQuiz }) {
   useEffect(() => {
     const buscarProvas = async () => {
       try {
-        // 👇 Chamando a nova rota inteligente passando o ID do aluno logado 👇
+        // 👇 Chamando a rota inteligente passando o ID do aluno logado 👇
         const response = await fetch(`/api/quizzes/dashboard/aluno/${userId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
@@ -18,7 +18,7 @@ export default function StudentDashboard({ onStartQuiz }) {
         if (!response.ok) throw new Error('Falha ao carregar as informações do painel.');
 
         const data = await response.json();
-        setDashboard(data); // Preenche as listas 'available' e 'completed' de uma vez!
+        setDashboard(data); // Preenche as listas 'available', 'completed' e 'missed' de uma vez!
       } catch (err) {
         setError(err.message);
       } finally {
@@ -105,12 +105,33 @@ export default function StudentDashboard({ onStartQuiz }) {
         </div>
       </section>
 
-      {/* Seção 3: Provas Perdidas */}
-      <section className="opacity-60">
+      {/* Seção 3: Provas Perdidas (AGORA DINÂMICA) */}
+      <section className="opacity-75">
         <h2 className="text-xl font-bold text-red-700 border-b-2 border-red-100 pb-2 mb-4">
           Provas Perdidas (Prazo Encerrado)
         </h2>
-        <p className="text-gray-500 text-sm">Nenhuma prova perdida.</p>
+        
+        {!loading && dashboard.missed.length === 0 && (
+          <p className="text-gray-500 text-sm bg-gray-50 p-4 rounded-lg border border-gray-100">
+            Nenhuma prova perdida. Parabéns por cumprir os prazos!
+          </p>
+        )}
+
+        <div className="grid gap-4">
+          {dashboard.missed.map(quiz => (
+            <div key={quiz.id} className="p-5 bg-red-50 border border-red-200 rounded-xl flex justify-between items-center shadow-sm">
+              <div>
+                <h3 className="font-bold text-lg text-red-900">{quiz.title}</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  O prazo final de entrega se encerrou.
+                </p>
+              </div>
+              <span className="bg-red-100 text-red-800 px-4 py-2 rounded-lg font-bold text-sm border border-red-200">
+                ⚠️ Expirada
+              </span>
+            </div>
+          ))}
+        </div>
       </section>
     </div>
   );

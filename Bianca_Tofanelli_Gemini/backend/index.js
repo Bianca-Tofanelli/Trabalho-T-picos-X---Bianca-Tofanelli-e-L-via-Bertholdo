@@ -1,7 +1,8 @@
 import express from 'express';
-// 1. Importamos o arquivo de rotas (Ajuste o caminho se o seu arquivo se chamar diferente)
+// Importamos os arquivos de rotas
 import authRoutes from './routes/auth.routes.js'; 
-import quizRoutes from './routes/quiz.routes.js'; // <-- 1. ADICIONEI ESTA LINHA AQUI!
+import quizRoutes from './routes/quiz.routes.js'; 
+import reportRoutes from './routes/report.routes.js'; // 👈 1. NOVO: Importamos a rota de relatórios
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,13 +15,14 @@ app.get('/', (req, res) => {
   res.json({ message: 'Servidor do Gerador de Quiz com Rubrica está rodando perfeitamente! 🚀' });
 });
 
-// 👇 2. O SEGREDO QUE FALTAVA 👇
 // Toda vez que chegar um pedido começando com /api/auth, ele manda para o authRoutes
 app.use('/api/auth', authRoutes);
 
-// 👇 2. ADICIONEI ESTA LINHA TAMBÉM 👇
 // Toda vez que chegar um pedido começando com /api/quizzes, ele manda para o quizRoutes
 app.use('/api/quizzes', quizRoutes);
+
+// 👇 2. NOVO: Toda vez que chegar um pedido de relatório, ele manda para o reportRoutes 👇
+app.use('/api/reports', reportRoutes);
 
 // Iniciando o servidor
 app.listen(PORT, () => {

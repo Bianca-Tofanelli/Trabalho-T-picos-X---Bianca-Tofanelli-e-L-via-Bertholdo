@@ -79,7 +79,152 @@ export default function TeacherDashboard() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err); 
-      alert('Erro ao fazer o download do relatório.');
+      alert('Erro ao fazer o download do relatório em Excel.');
+    }
+  };
+
+  // 👇 FUNÇÃO COMPLETA: GERA RELATÓRIO DO ALUNO + ENGENHARIA POR QUESTÃO NO PDF 👇
+  const handleGeneratePDF = async (quizId) => {
+    try {
+      const response = await fetch(`/api/reports/quizzes/${quizId}/json`);
+      if (!response.ok) throw new Error('Falha ao carregar dados para o PDF');
+      const data = await response.json();
+
+      const printWindow = window.open('', '_blank');
+      
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Relatório - ${data.quiz.titulo}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @media print {
+              @page { margin: 15mm; }
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .page-break { page-break-inside: avoid; }
+              .page-break-before { page-break-before: always; }
+            }
+          </style>
+        </head>
+        <body class="bg-white text-gray-900 font-sans p-6">
+          
+          <div class="border-b-4 border-blue-600 pb-6 mb-8 flex justify-between items-end">
+            <div>
+              <h1 class="text-4xl font-black text-gray-800 tracking-tight">Relatório de Rendimento</h1>
+              <h2 class="text-2xl font-semibold text-gray-500 mt-2">${data.quiz.titulo}</h2>
+            </div>
+            <div class="text-right text-gray-500 text-sm font-medium">
+              <p>Gerado em: ${new Date().toLocaleDateString('pt-BR')}</p>
+              <p>Duração da Prova: ${data.quiz.duracao} minutos</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-6 mb-10">
+            <div class="bg-gray-50 border border-gray-200 p-5 rounded-xl text-center">
+              <p class="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">Matriculados</p>
+              <p class="text-3xl font-black text-blue-600">${data.metricas.totalAlunos}</p>
+            </div>
+            <div class="bg-gray-50 border border-gray-200 p-5 rounded-xl text-center">
+              <p class="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">Provas Entregues</p>
+              <p class="text-3xl font-black text-green-600">${data.metricas.totalFeitas}</p>
+            </div>
+            <div class="bg-gray-50 border border-gray-200 p-5 rounded-xl text-center">
+              <p class="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">Faltas</p>
+              <p class="text-3xl font-black text-red-600">${data.metricas.totalFaltas}</p>
+            </div>
+          </div>
+
+          <div class="mb-12">
+            <h3 class="text-xl font-bold text-gray-800 border-b-2 border-gray-100 pb-2 mb-4">Notas Finais da Turma</h3>
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 text-gray-600 uppercase text-xs tracking-wider">
+                  <th class="p-4 rounded-tl-lg">ID</th>
+                  <th class="p-4">Nome do Aluno</th>
+                  <th class="p-4">Status</th>
+                  <th class="p-4 rounded-tr-lg text-right">Nota Final</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${data.alunos.map(aluno => `
+                  <tr class="page-break hover:bg-gray-50">
+                    <td class="p-4 text-sm font-medium text-gray-500">${aluno.id}</td>
+                    <td class="p-4 font-bold text-gray-800">${aluno.nome}</td>
+                    <td class="p-4">
+                      <span class="px-3 py-1 rounded-full text-xs font-bold ${
+                        aluno.status === 'Corrigida' ? 'bg-green-100 text-green-800' :
+                        aluno.status === 'Faltou' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                      }">
+                        ${aluno.status}
+                      </span>
+                    </td>
+                    <td class="p-4 text-right font-black text-lg ${aluno.status === 'Faltou' ? 'text-red-500' : 'text-gray-900'}">
+                      ${aluno.nota}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="page-break-before pt-4">
+            <h3 class="text-xl font-bold text-gray-800 border-b-2 border-gray-100 pb-2 mb-4">Engenharia da Avaliação (Análise de Itens)</h3>
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-blue-50 text-blue-800 uppercase text-xs tracking-wider border-b border-blue-200">
+                  <th class="p-4 rounded-tl-lg">Questão</th>
+                  <th class="p-4 text-center">Peso</th>
+                  <th class="p-4 text-center">Índice de Acerto</th>
+                  <th class="p-4 rounded-tr-lg">Distribuição das Respostas Cadastradas</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${data.questoes && data.questoes.map(q => {
+                  // Define cor do indicador baseado no aproveitamento
+                  const valorPorcentagem = parseFloat(q.acertos);
+                  const corBadge = q.acertos.includes('N/A') ? 'bg-gray-100 text-gray-600' : 
+                                   valorPorcentagem < 50.0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+
+                  return `
+                    <tr class="page-break hover:bg-gray-50">
+                      <td class="p-4">
+                        <p class="font-bold text-gray-800">Questão ${q.numero}</p>
+                        <p class="text-xs text-gray-500 font-medium">${q.tipo}</p>
+                      </td>
+                      <td class="p-4 text-center font-bold text-gray-700">${q.peso} pts</td>
+                      <td class="p-4 text-center">
+                        <span class="px-3 py-1 rounded-lg text-xs font-black ${corBadge}">
+                          ${q.acertos}
+                        </span>
+                      </td>
+                      <td class="p-4 text-xs font-medium text-gray-600 leading-relaxed max-w-md">
+                        ${q.distribuicao}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="text-center text-gray-400 text-xs mt-12 border-t border-gray-100 pt-4">
+            <p>Documento gerado automaticamente pelo Sistema de Avaliações.</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+
+      setTimeout(() => {
+        printWindow.print();
+      }, 700);
+
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao tentar gerar o documento PDF analítico.');
     }
   };
 
@@ -110,10 +255,8 @@ export default function TeacherDashboard() {
     }
   };
 
-  // 👇 FUNÇÃO DE AVALIAR ATUALIZADA COM TRAVA DE NOTA 👇
   const handleAvaliar = async (submissaoId, acertosAutomaticos, dissertativasDoAluno) => {
     const totalPossivel = dissertativasDoAluno.reduce((acc, curr) => acc + curr.pesoMaximo, 0);
-
     const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos.toFixed(1)} pontos.\nA(s) questão(ões) dissertativa(s) do aluno vale(m) no máximo ${totalPossivel.toFixed(1)} pontos.\n\nQuantos pontos você dá para ele?`);
     
     if (notaStr === null) return; 
@@ -121,7 +264,6 @@ export default function TeacherDashboard() {
     const nota = parseFloat(notaStr.replace(',', '.')); 
     if (isNaN(nota)) return alert("Por favor, digite um número válido!");
 
-    // 🚨 TRAVA DE SEGURANÇA: Não deixa passar de 10 nem dar nota negativa 🚨
     if (nota < 0 || nota > totalPossivel) {
       return alert(`⚠️ Ação bloqueada: A nota atribuída deve ser entre 0 e ${totalPossivel.toFixed(1)}!`);
     }
@@ -287,9 +429,15 @@ export default function TeacherDashboard() {
                     </div>
                   )}
 
-                  <button onClick={() => handleDownloadCSV(quiz.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center transition-colors">
-                    Baixar Relatório (CSV)
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => handleDownloadCSV(quiz.id)} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-2 rounded-xl flex items-center justify-center transition-colors text-sm">
+                      Baixar (CSV)
+                    </button>
+                    
+                    <button onClick={() => handleGeneratePDF(quiz.id)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-2 rounded-xl flex items-center justify-center transition-colors text-sm">
+                      📄 Gerar PDF
+                    </button>
+                  </div>
 
                   {quiz.releaseMode === 'MANUAL' && !quiz.isReleased && (
                     <button onClick={() => handleLiberarResultados(quiz.id)} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm">

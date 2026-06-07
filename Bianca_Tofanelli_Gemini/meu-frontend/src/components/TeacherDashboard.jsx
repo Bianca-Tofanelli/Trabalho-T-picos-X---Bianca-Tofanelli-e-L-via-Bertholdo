@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-
+import API_URL from '../apiConfig';
 export default function TeacherDashboard() {
   const [quizzes, setQuizzes] = useState([]);
   const [pendentes, setPendentes] = useState([]); 
@@ -19,10 +19,10 @@ export default function TeacherDashboard() {
   useEffect(() => {
     const carregarPainel = async () => {
       try {
-        const resQuizzes = await fetch(`/api/quizzes/professor/${userId}`);
+        const resQuizzes = await fetch(`${API_URL}/api/quizzes/professor/${userId}`);
         if (resQuizzes.ok) setQuizzes(await resQuizzes.json());
 
-        const resPendentes = await fetch(`/api/quizzes/professor/${userId}/pendentes`);
+        const resPendentes = await fetch(`${API_URL}/api/quizzes/professor/${userId}/pendentes`);
         if (resPendentes.ok) setPendentes(await resPendentes.json());
       } catch (err) {
         console.error(err); 
@@ -63,7 +63,7 @@ export default function TeacherDashboard() {
 
   const handleDownloadCSV = async (quizId) => {
     try {
-      const response = await fetch(`/api/reports/quizzes/${quizId}/export`, {
+      const response = await fetch(`${API_URL}/api/reports/quizzes/${quizId}/export`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -86,7 +86,7 @@ export default function TeacherDashboard() {
   // 👇 FUNÇÃO COMPLETA: GERA RELATÓRIO DO ALUNO + ENGENHARIA POR QUESTÃO NO PDF 👇
   const handleGeneratePDF = async (quizId) => {
     try {
-      const response = await fetch(`/api/reports/quizzes/${quizId}/json`);
+      const response = await fetch(`${API_URL}/api/reports/quizzes/${quizId}/json`);
       if (!response.ok) throw new Error('Falha ao carregar dados para o PDF');
       const data = await response.json();
 
@@ -232,7 +232,7 @@ export default function TeacherDashboard() {
     const confirmar = window.confirm("Tem certeza que deseja apagar esta prova?");
     if (!confirmar) return;
     try {
-      const response = await fetch(`/api/quizzes/${quizId}`, { method: 'DELETE' });
+      const response = await fetch(`${API_URL}/api/quizzes/${quizId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Erro ao apagar.');
       setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
     } catch (err) {
@@ -245,7 +245,7 @@ export default function TeacherDashboard() {
     const confirmar = window.confirm("Deseja liberar as notas e o gabarito desta prova para todos os alunos agora?");
     if (!confirmar) return;
     try {
-      const response = await fetch(`/api/quizzes/${quizId}/liberar`, { method: 'PATCH' });
+      const response = await fetch(`${API_URL}/api/quizzes/${quizId}/liberar`, { method: 'PATCH' });
       if (!response.ok) throw new Error('Erro ao liberar.');
       alert("Resultados liberados com sucesso!");
       setQuizzes(quizzes.map(q => q.id === quizId ? { ...q, isReleased: true } : q));
@@ -269,7 +269,7 @@ export default function TeacherDashboard() {
     }
 
     try {
-      const res = await fetch(`/api/quizzes/submissao/${submissaoId}/avaliar`, {
+      const res = await fetch(`${API_URL}/api/quizzes/submissao/${submissaoId}/avaliar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notaProfessor: nota })
@@ -291,7 +291,7 @@ export default function TeacherDashboard() {
       return;
     }
     try {
-      const response = await fetch(`/api/quizzes/${quizId}/notas`);
+      const response = await fetch(`${API_URL}/api/quizzes/${quizId}/notas`);
       if (response.ok) {
         const notas = await response.json();
         setNotasExpandidas({ ...notasExpandidas, [quizId]: notas });

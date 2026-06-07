@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import API_URL from '../apiConfig';
 export default function QuizCreator() {
   const [isSaving, setIsSaving] = useState(false);
   
@@ -73,7 +73,7 @@ export default function QuizCreator() {
       const dataInicioFormatada = new Date(quizData.startDate).toISOString();
       const dataFimFormatada = new Date(quizData.endDate).toISOString();
 
-      const response = await fetch('/api/quizzes', {
+      const response = await fetch(`${API_URL}/api/quizzes`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

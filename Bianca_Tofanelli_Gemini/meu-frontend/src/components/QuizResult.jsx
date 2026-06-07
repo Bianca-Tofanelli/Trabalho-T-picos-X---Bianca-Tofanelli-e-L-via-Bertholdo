@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import API_URL from '../apiConfig';
 
 export default function QuizResult({ quizId, onBack }) {
   const [resultado, setResultado] = useState(null);
@@ -10,7 +11,7 @@ export default function QuizResult({ quizId, onBack }) {
   useEffect(() => {
     const buscarResultado = async () => {
       try {
-        const response = await fetch(`/api/quizzes/${quizId}/resultado/${studentId}`);
+        const response = await fetch(`${API_URL}/api/quizzes/${quizId}/resultado/${studentId}`);
         if (!response.ok) throw new Error('Não foi possível carregar o resultado.');
         setResultado(await response.json());
       } catch (err) {

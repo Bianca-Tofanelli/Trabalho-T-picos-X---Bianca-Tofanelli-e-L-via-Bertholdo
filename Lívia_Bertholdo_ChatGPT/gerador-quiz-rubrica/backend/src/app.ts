@@ -9,6 +9,8 @@ import { questionRoutes } from "./modules/questions/question.routes";
 
 import { alternativeRoutes } from "./modules/alternatives/alternative.routes";
 
+import { quizRoutes } from "./modules/quizzes/quiz.routes";
+
 const app = express();
 
 app.use(cors());
@@ -31,6 +33,11 @@ app.use(
 app.use(
   "/alternatives",
   alternativeRoutes
+);
+
+app.use(
+  "/quizzes",
+  quizRoutes
 );
 
 app.use(errorMiddleware);

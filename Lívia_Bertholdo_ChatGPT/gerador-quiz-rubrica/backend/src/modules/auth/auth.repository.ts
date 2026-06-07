@@ -38,4 +38,12 @@ export class AuthRepository {
       },
     });
   }
+
+  async deleteAllUserTokens(userId: string) {
+    return prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+      },
+    });
+  }
 }

@@ -78,5 +78,53 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Erro interno no servidor ao tentar fazer login.' });
   }
 });
+// ROTA PARA EXCLUIR CONTA DE USUÁRIO (E APAGAR TUDO QUE É DELE NA ORDEM CERTA)
+router.delete('/usuario/:id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+    if (user.role === 'ALUNO') {
+      // Se for aluno, apaga só as provas que ele entregou
+      await prisma.submission.deleteMany({ where: { studentId: userId } });
+    } else if (user.role === 'PROFESSOR') {
+      // Se for professor, a limpeza precisa seguir a hierarquia do banco
+      const provas = await prisma.quiz.findMany({ where: { professorId: userId } });
+      const idsProvas = provas.map(p => p.id);
+
+      if (idsProvas.length > 0) {
+        // 1. Apaga as entregas dos alunos referentes a essas provas
+        await prisma.submission.deleteMany({ where: { quizId: { in: idsProvas } } });
+        
+        // 2. Busca todas as questões que pertencem a essas provas
+        const questoes = await prisma.question.findMany({
+          where: { quizzes: { some: { quizId: { in: idsProvas } } } }
+        });
+        const idsQuestoes = questoes.map(q => q.id);
+
+        // 3. Quebra a ponte que liga as Questões à Prova (tabela QuizQuestion)
+        await prisma.quizQuestion.deleteMany({ where: { quizId: { in: idsProvas } } });
+
+        // 4. Apaga as questões definitivamente
+        if (idsQuestoes.length > 0) {
+          await prisma.question.deleteMany({ where: { id: { in: idsQuestoes } } });
+        }
+      }
+      
+      // 5. AGORA SIM, com a caixa vazia, apaga as provas!
+      await prisma.quiz.deleteMany({ where: { professorId: userId } });
+    }
+
+    // Por fim, apaga a conta do usuário
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ message: 'Conta e todos os dados excluídos com sucesso!' });
+  } catch (error) {
+    console.error("Erro ao excluir conta:", error);
+    res.status(500).json({ error: 'Erro ao excluir a conta.' });
+  }
+});
 
 export default router;

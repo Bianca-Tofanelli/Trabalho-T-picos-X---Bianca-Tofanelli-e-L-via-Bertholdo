@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// 1. SALVAR PROVA (Com as datas corrigidas)
+// 1. SALVAR PROVA
 router.post('/', async (req, res) => {
   try {
     const { title, duration, startDate, endDate, professorId, questions, releaseMode } = req.body;
@@ -40,22 +40,66 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 2. DASHBOARD DO ALUNO
+// 2. DASHBOARD DO ALUNO (COM SISTEMA DE DIAGNÓSTICO NO TERMINAL)
 router.get('/dashboard/aluno/:studentId', async (req, res) => {
   try {
     const idAluno = parseInt(req.params.studentId);
+    
+    // Busca professores ativos
+    const professoresAtivos = await prisma.user.findMany({ where: { role: 'PROFESSOR' } });
+    const idsProfessoresAtivos = professoresAtivos.map(p => p.id);
+
     const todasProvas = await prisma.quiz.findMany();
     const submissoes = await prisma.submission.findMany({ where: { studentId: idAluno } });
-
     const idsProvasFeitas = submissoes.map(s => s.quizId);
-    const available = todasProvas.filter(q => !idsProvasFeitas.includes(q.id));
     
+    const now = new Date();
+
+    // 🚨 LOGS DE AUXÍLIO NO TERMINAL 🚨
+    console.log("\n--- 🔍 INVESTIGANDO SUMIÇO DE PROVAS ---");
+    console.log(`Horário Atual do Servidor: ${now.toISOString()}`);
+    console.log(`IDs de Professores Ativos no Banco: [${idsProfessoresAtivos.join(', ')}]`);
+    console.log(`Total de provas cadastradas no banco: ${todasProvas.length}`);
+
+    const available = [];
+    const missed = [];
+
+    for (const q of todasProvas) {
+      // 1. Checa se o aluno já fez
+      if (idsProvasFeitas.includes(q.id)) {
+        console.log(`💡 Prova "${q.title}" (ID: ${q.id}) -> Omitida da lista porque o aluno já respondeu.`);
+        continue;
+      }
+
+      // 2. Checa se a prova pertence a um professor ativo
+      if (!idsProfessoresAtivos.includes(q.professorId)) {
+        console.log(`⚠️ Prova "${q.title}" (ID: ${q.id}) -> ESCONDIDA! O professor ID ${q.professorId} que a criou não foi localizado como 'PROFESSOR' ativo.`);
+        continue;
+      }
+
+      const inicio = q.startDate ? new Date(q.startDate) : null;
+      const fim = q.endDate ? new Date(q.endDate) : null;
+      
+      const jaComecou = !inicio || now >= inicio;
+      const naoTerminou = !fim || now <= fim;
+
+      if (jaComecou && naoTerminou) {
+        available.push(q);
+      } else if (fim && now > fim) {
+        missed.push(q);
+      } else {
+        // 3. Checa se barrou no horário
+        console.log(`⏳ Prova "${q.title}" (ID: ${q.id}) -> BLOQUEADA CRONOLOGICAMENTE! Só vai aparecer quando o relógio bater ${inicio?.toISOString()}`);
+      }
+    }
+
     const completed = submissoes.map(sub => {
       const quiz = todasProvas.find(q => q.id === sub.quizId);
+      if (!quiz) return null;
       
       let liberado = false;
       if (quiz.feedbackStrategy === 'IMMEDIATE') liberado = true;
-      if ((quiz.feedbackStrategy === 'AFTER_CLOSE' || quiz.feedbackStrategy === 'AFTER_DEADLINE') && new Date() > new Date(quiz.endDate)) liberado = true;
+      if ((quiz.feedbackStrategy === 'AFTER_CLOSE' || quiz.feedbackStrategy === 'AFTER_DEADLINE') && now > new Date(quiz.endDate)) liberado = true;
 
       return {
         id: quiz.id,
@@ -64,14 +108,14 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
         notaFinal: sub.score,
         podeVerResultado: liberado 
       };
-    });
+    }).filter(Boolean);
 
-    res.json({ available, completed, missed: [] });
+    res.json({ available, completed, missed });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Erro ao carregar o painel.' });
   }
 });
-
 // 3. SUBMETER E CORRIGIR A PROVA AUTOMATICAMENTE
 router.post('/:id/submeter', async (req, res) => {
   try {
@@ -84,30 +128,34 @@ router.post('/:id/submeter', async (req, res) => {
     });
 
     let acertos = 0;
-    let temDissertativa = false;
+    let temDissertativaRespondida = false; 
     let respostasCorrigidas = {};
 
     for (const link of prova.questions) {
       const q = link.question;
       const detalhes = JSON.parse(q.details); 
+      const pesoDaQuestao = parseFloat(detalhes.peso || 1); // 👈 Pega o peso da questão
+      
       const respostaDoAluno = answers[q.id];
       let isCorrect = null; 
 
       if (q.type === 'MULTIPLE_CHOICE') {
         isCorrect = (respostaDoAluno === detalhes.correctOptionIndex);
-        if (isCorrect) acertos += 1;
+        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
       } else if (q.type === 'TRUE_FALSE') {
         isCorrect = (respostaDoAluno === detalhes.correctAnswer);
-        if (isCorrect) acertos += 1;
+        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
       } else if (q.type === 'ESSAY') {
-        temDissertativa = true;
+        if (respostaDoAluno && typeof respostaDoAluno === 'string' && respostaDoAluno.trim() !== "") {
+          temDissertativaRespondida = true;
+        }
       }
 
       respostasCorrigidas[q.id] = { valor: respostaDoAluno, isCorrect };
     }
 
-    const statusDaProva = temDissertativa ? "PENDING_REVIEW" : "GRADED";
-    const notaCalculada = temDissertativa ? null : acertos;
+    const statusDaProva = temDissertativaRespondida ? "PENDING_REVIEW" : "GRADED";
+    const notaCalculada = acertos; 
 
     await prisma.submission.create({
       data: {
@@ -124,7 +172,6 @@ router.post('/:id/submeter', async (req, res) => {
     res.status(500).json({ error: 'Erro ao corrigir.' });
   }
 });
-
 // 4. BUSCAR A PROVA COM O GABARITO
 router.get('/:id/resultado/:studentId', async (req, res) => {
   try {
@@ -156,6 +203,14 @@ router.get('/:id', async (req, res) => {
       include: { questions: { include: { question: true } } } 
     });
     if (!prova) return res.status(404).json({ error: 'Prova não encontrada.' });
+
+    const now = new Date();
+    if (prova.startDate && now < new Date(prova.startDate)) {
+      return res.status(403).json({ error: 'Esta prova ainda não está disponível para realização.' });
+    }
+    if (prova.endDate && now > new Date(prova.endDate)) {
+      return res.status(403).json({ error: 'O período de realização desta prova já se encerrou.' });
+    }
 
     res.json({
       ...prova,
@@ -189,26 +244,37 @@ router.patch('/:id/liberar', async (req, res) => {
 router.get('/professor/:professorId/pendentes', async (req, res) => {
   try {
     const { professorId } = req.params;
-    const provas = await prisma.quiz.findMany({
+    const provinces = await prisma.quiz.findMany({
       where: { professorId: parseInt(professorId) },
       include: { questions: { include: { question: true } } }
     });
-    const idsProvas = provas.map(p => p.id);
+    const idsProvas = provinces.map(p => p.id);
 
     const pendentes = await prisma.submission.findMany({
       where: { quizId: { in: idsProvas }, status: 'PENDING_REVIEW' }
     });
 
     const tarefas = pendentes.map(sub => {
-      const provaOrig = provas.find(p => p.id === sub.quizId);
+      const provaOrig = provinces.find(p => p.id === sub.quizId);
       const respostasAluno = JSON.parse(sub.answers);
 
-      const dissertativas = provaOrig.questions.map(pq => pq.question).filter(q => q.type === 'ESSAY').map(q => ({
-          idQuestao: q.id,
-          enunciado: q.content,
-          rubrica: JSON.parse(q.details).rubric,
-          respostaDoAluno: respostasAluno[q.id]?.valor || "Deixou em branco"
-        }));
+      const dissertativas = provaOrig.questions
+        .map(pq => pq.question)
+        .filter(q => q.type === 'ESSAY')
+        .filter(q => {
+          const resp = respostasAluno[q.id]?.valor;
+          return resp && typeof resp === 'string' && resp.trim() !== ""; 
+        })
+        .map(q => {
+          const detalhes = JSON.parse(q.details);
+          return {
+            idQuestao: q.id,
+            enunciado: q.content,
+            rubrica: detalhes.rubric,
+            pesoMaximo: parseFloat(detalhes.peso || 1), // 👈 Manda pro frontend quanto essa questão vale!
+            respostaDoAluno: respostasAluno[q.id].valor
+          };
+        });
 
       return {
         submissaoId: sub.id,
@@ -219,12 +285,13 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
       };
     });
 
-    res.json(tarefas);
+    const tarefasValidas = tarefas.filter(t => t.dissertativas.length > 0);
+
+    res.json(tarefasValidas);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar pendências.' });
   }
 });
-
 // 8. RECEBER A NOTA DA DISSERTATIVA E FINALIZAR A PROVA
 router.post('/submissao/:id/avaliar', async (req, res) => {
   try {
@@ -243,18 +310,28 @@ router.post('/submissao/:id/avaliar', async (req, res) => {
   }
 });
 
-// 9. PROFESSOR LER SUAS PROVAS 
+// 9. PROFESSOR LER SUAS PROVAS
 router.get('/professor/:professorId', async (req, res) => {
   try {
-    const provas = await prisma.quiz.findMany({
+    const provinces = await prisma.quiz.findMany({
       where: { professorId: parseInt(req.params.professorId) }
     });
-    const provasFormatadas = provas.map(q => ({
-      ...q,
-      releaseMode: q.feedbackStrategy,
-      isReleased: q.feedbackStrategy === 'IMMEDIATE'
+
+    const totalAlunos = await prisma.user.count({ where: { role: 'ALUNO' } });
+
+    const provincesFormatadas = await Promise.all(provinces.map(async (q) => {
+      const totalRespostas = await prisma.submission.count({ where: { quizId: q.id } });
+      
+      return {
+        ...q,
+        releaseMode: q.feedbackStrategy,
+        isReleased: q.feedbackStrategy === 'IMMEDIATE',
+        totalRespostas,
+        totalAlunos
+      };
     }));
-    res.json(provasFormatadas);
+
+    res.json(provincesFormatadas);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar provas.' });
   }
@@ -278,12 +355,12 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// 👇 11. NOVA ROTA: BUSCAR AS NOTAS DE UMA PROVA 👇
+// 11. BUSCAR AS NOTAS DE UMA PROVA
 router.get('/:id/notas', async (req, res) => {
   try {
     const notas = await prisma.submission.findMany({
       where: { quizId: parseInt(req.params.id) },
-      select: { id: true, studentId: true, score: true, status: true } // Puxa só as informações de nota
+      select: { id: true, studentId: true, score: true, status: true }
     });
     res.json(notas);
   } catch (error) {

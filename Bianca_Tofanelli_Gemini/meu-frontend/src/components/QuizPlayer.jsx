@@ -6,7 +6,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
   const [respostas, setRespostas] = useState({}); 
   const [tempoRestante, setTempoRestante] = useState(0); 
 
-  // 👇 1. A SOLUÇÃO: A função foi movida para o topo, antes de ser usada! 👇
   const entregarProva = async () => {
     try {
       const studentId = localStorage.getItem('userId');
@@ -19,14 +18,14 @@ export default function QuizPlayer({ quizId, onFinish }) {
         },
         body: JSON.stringify({
           studentId: studentId,
-          answers: respostas // Envia o objeto com tudo o que o aluno marcou
+          answers: respostas 
         })
       });
 
       if (!response.ok) throw new Error('Erro ao registrar respostas.');
 
       alert("🎉 Prova concluída e enviada com sucesso!");
-      onFinish(); // Retorna para o painel do aluno
+      onFinish(); 
 
     } catch (error) {
       console.error(error);
@@ -41,7 +40,23 @@ export default function QuizPlayer({ quizId, onFinish }) {
         if (response.ok) {
           const data = await response.json();
           setQuiz(data);
-          setTempoRestante(data.duration * 60); 
+          
+          const duracaoEmSegundos = data.duration * 60;
+          let tempoFinal = duracaoEmSegundos;
+
+          if (data.endDate) {
+            const dataFim = new Date(data.endDate).getTime();
+            const agora = new Date().getTime();
+            const segundosAteFimDaProva = Math.floor((dataFim - agora) / 1000);
+
+            if (segundosAteFimDaProva > 0) {
+              tempoFinal = Math.min(duracaoEmSegundos, segundosAteFimDaProva);
+            } else {
+              tempoFinal = 0; 
+            }
+          }
+
+          setTempoRestante(tempoFinal); 
         }
       } catch (error) {
         console.error("Erro ao carregar a prova", error);
@@ -53,7 +68,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
     carregarProva();
   }, [quizId]);
 
-  // 👇 2. O MOTOR DO CRONÔMETRO REGRESSIVO 👇
   useEffect(() => {
     if (loading || !quiz) return;
 
@@ -69,7 +83,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
 
     return () => clearInterval(intervalo);
     
-    // 👇 O FEITIÇO: Avisa o React para ignorar o alerta da dependência e não travar o relógio
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tempoRestante, loading, quiz]);
 
@@ -77,11 +90,24 @@ export default function QuizPlayer({ quizId, onFinish }) {
     setRespostas({ ...respostas, [questionId]: valor });
   };
 
+  // 👇 NOVA FUNÇÃO: Apaga a resposta do aluno e deixa a questão em branco 👇
+  const handleLimparResposta = (questionId) => {
+    const novasRespostas = { ...respostas };
+    delete novasRespostas[questionId]; // Remove a marcação da memória
+    setRespostas(novasRespostas);
+  };
+
   const formatarTempo = (segundosTotais) => {
-    const minutos = Math.floor(segundosTotais / 60);
+    const horas = Math.floor(segundosTotais / 3600);
+    const minutos = Math.floor((segundosTotais % 3600) / 60);
     const segundos = segundosTotais % 60;
+    
     const minsFormatados = String(minutos).padStart(2, '0');
     const segsFormatados = String(segundos).padStart(2, '0');
+    
+    if (horas > 0) {
+      return `${String(horas).padStart(2, '0')}:${minsFormatados}:${segsFormatados}`;
+    }
     return `${minsFormatados}:${segsFormatados}`;
   };
 
@@ -101,7 +127,6 @@ export default function QuizPlayer({ quizId, onFinish }) {
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-gray-200 mt-8 space-y-8">
       
-      {/* Cabeçalho da Prova com Cronômetro Dinâmico */}
       <div className="border-b border-gray-100 pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">{quiz.title}</h2>
         
@@ -114,62 +139,81 @@ export default function QuizPlayer({ quizId, onFinish }) {
         </span>
       </div>
 
-      {/* Listagem de Perguntas */}
       <div className="space-y-6">
-        {quiz.questions.map((q, index) => (
-          <div key={q.id} className="p-5 bg-gray-50 rounded-xl border border-gray-100">
-            <p className="font-bold text-gray-800 mb-3">Questão {index + 1}</p>
-            <p className="text-gray-700 mb-4 whitespace-pre-wrap">{q.content}</p>
+        {quiz.questions.map((q, index) => {
+          // Verifica se o aluno já respondeu esta questão
+          const temResposta = respostas[q.id] !== undefined && respostas[q.id] !== '';
 
-            {q.type === 'MULTIPLE_CHOICE' && (
-              <div className="space-y-2">
-                {q.details.options.map((opcao, i) => (
-                  <label key={i} className="flex items-center space-x-3 p-2 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
-                    <input 
-                      type="radio" 
-                      name={`question-${q.id}`} 
-                      checked={respostas[q.id] === i}
-                      onChange={() => handleSalvarResposta(q.id, i)}
-                    />
-                    <span className="text-gray-700">{opcao}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+          return (
+            <div key={q.id} className="p-5 bg-gray-50 rounded-xl border border-gray-100">
+              <p className="font-bold text-gray-800 mb-3">Questão {index + 1}</p>
+              <p className="text-gray-700 mb-4 whitespace-pre-wrap">{q.content}</p>
 
-            {q.type === 'TRUE_FALSE' && (
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => handleSalvarResposta(q.id, true)}
-                  className={`flex-1 py-2 rounded-lg font-bold border transition-colors ${respostas[q.id] === true ? 'bg-green-100 border-green-500 text-green-700' : 'bg-white border-gray-200'}`}
-                >
-                  Verdadeiro
-                </button>
-                <button 
-                  onClick={() => handleSalvarResposta(q.id, false)}
-                  className={`flex-1 py-2 rounded-lg font-bold border transition-colors ${respostas[q.id] === false ? 'bg-red-100 border-red-500 text-red-700' : 'bg-white border-gray-200'}`}
-                >
-                  Falso
-                </button>
-              </div>
-            )}
+              {q.type === 'MULTIPLE_CHOICE' && (
+                <div className="space-y-2">
+                  {q.details.options.map((opcao, i) => (
+                    <label key={i} className="flex items-center space-x-3 p-2 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors">
+                      <input 
+                        type="radio" 
+                        name={`question-${q.id}`} 
+                        checked={respostas[q.id] === i}
+                        onChange={() => handleSalvarResposta(q.id, i)}
+                      />
+                      <span className="text-gray-700">{opcao}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
 
-            {q.type === 'ESSAY' && (
-              <textarea 
-                className="w-full p-3 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
-                rows="4"
-                placeholder="Digite a sua resposta dissertativa aqui..."
-                value={respostas[q.id] || ''}
-                onChange={(e) => handleSalvarResposta(q.id, e.target.value)}
-              />
-            )}
-          </div>
-        ))}
+              {q.type === 'TRUE_FALSE' && (
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => handleSalvarResposta(q.id, true)}
+                    className={`flex-1 py-2 rounded-lg font-bold border transition-colors ${respostas[q.id] === true ? 'bg-green-100 border-green-500 text-green-700' : 'bg-white border-gray-200'}`}
+                  >
+                    Verdadeiro
+                  </button>
+                  <button 
+                    onClick={() => handleSalvarResposta(q.id, false)}
+                    className={`flex-1 py-2 rounded-lg font-bold border transition-colors ${respostas[q.id] === false ? 'bg-red-100 border-red-500 text-red-700' : 'bg-white border-gray-200'}`}
+                  >
+                    Falso
+                  </button>
+                </div>
+              )}
+
+              {q.type === 'ESSAY' && (
+                <textarea 
+                  className="w-full p-3 bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-100"
+                  rows="4"
+                  placeholder="Digite a sua resposta dissertativa aqui..."
+                  value={respostas[q.id] || ''}
+                  onChange={(e) => handleSalvarResposta(q.id, e.target.value)}
+                />
+              )}
+
+              {/* 👇 BOTÃO DE LIMPAR MARCAÇÃO (Só aparece se tiver resposta) 👇 */}
+              {temResposta && (
+                <div className="mt-4 pt-3 border-t border-gray-200 text-right">
+                  <button
+                    onClick={() => handleLimparResposta(q.id)}
+                    className="text-sm font-bold text-gray-400 hover:text-red-500 transition-colors flex items-center justify-end w-full gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Limpar marcação
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <button 
         onClick={entregarProva}
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md"
+        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md mt-8"
       >
         Submeter / Entregar Prova
       </button>

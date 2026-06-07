@@ -54,4 +54,26 @@ export class QuizRepository {
       },
     });
   }
+
+  async publish(id: string) {
+    return prisma.quiz.update({
+      where: {
+        id,
+      },
+      data: {
+        status: "PUBLISHED",
+      },
+    });
+  }
+
+  async close(id: string) {
+    return prisma.quiz.update({
+      where: {
+        id,
+      },
+      data: {
+        status: "CLOSED",
+      },
+    });
+  }
 }

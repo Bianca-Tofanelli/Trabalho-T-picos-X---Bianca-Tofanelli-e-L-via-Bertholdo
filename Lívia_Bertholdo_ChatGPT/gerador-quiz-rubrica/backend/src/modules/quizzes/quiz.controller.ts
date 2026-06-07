@@ -64,4 +64,28 @@ export class QuizController {
 
     return res.status(204).send();
   }
+
+  async publish(
+    req: Request,
+    res: Response
+  ) {
+    const result =
+      await this.service.publish(
+        String(req.params.id)
+      );
+
+    return res.status(200).json(result);
+  }
+
+  async close(
+    req: Request,
+    res: Response
+  ) {
+    const result =
+      await this.service.close(
+        String(req.params.id)
+      );
+
+    return res.status(200).json(result);
+  }
 }

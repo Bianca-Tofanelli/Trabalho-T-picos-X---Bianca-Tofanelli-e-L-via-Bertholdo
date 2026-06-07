@@ -34,6 +34,20 @@ quizRoutes.get(
   )
 );
 
+quizRoutes.patch(
+  "/:id/publish",
+  controller.publish.bind(
+    controller
+  )
+);
+
+quizRoutes.patch(
+  "/:id/close",
+  controller.close.bind(
+    controller
+  )
+);
+
 quizRoutes.get(
   "/:id",
   controller.findById.bind(

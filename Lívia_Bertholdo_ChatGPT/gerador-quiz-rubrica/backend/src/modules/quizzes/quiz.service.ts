@@ -54,4 +54,39 @@ export class QuizService {
 
     await this.repository.delete(id);
   }
+
+  async publish(id: string) {
+    const quiz =
+      await this.findById(id);
+
+    if (quiz.status !== "DRAFT") {
+      throw new AppError(
+        "Somente quizzes em rascunho podem ser publicados",
+        400
+      );
+    }
+
+    if (quiz.questions.length === 0) {
+      throw new AppError(
+        "O quiz deve possuir ao menos uma questão",
+        400
+      );
+    }
+
+    return this.repository.publish(id);
+  }
+
+  async close(id: string) {
+    const quiz =
+      await this.findById(id);
+
+    if (quiz.status !== "PUBLISHED") {
+      throw new AppError(
+        "Somente quizzes publicados podem ser encerrados",
+        400
+      );
+    }
+
+    return this.repository.close(id);
+  }
 }

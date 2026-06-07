@@ -78,5 +78,52 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Erro interno no servidor ao tentar fazer login.' });
   }
 });
+// ROTA PARA EXCLUIR CONTA DE USUÁRIO (ALUNO OU PROFESSOR)
+router.delete('/usuario/:id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
 
+    // 1. Descobre quem é o usuário
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+
+    // 2. Se for ALUNO: Apaga apenas as provas que ele entregou
+    if (user.role === 'ALUNO') {
+      await prisma.submission.deleteMany({
+        where: { studentId: userId }
+      });
+    } 
+    
+    // 3. Se for PROFESSOR: O buraco é mais embaixo. Temos que apagar o império dele.
+    else if (user.role === 'PROFESSOR') {
+      // Pega todas as provas dele
+      const provas = await prisma.quiz.findMany({ where: { professorId: userId } });
+      const idsProvas = provas.map(p => p.id);
+
+      // Apaga as entregas dos alunos feitas nessas provas
+      await prisma.submission.deleteMany({ where: { quizId: { in: idsProvas } } });
+      
+      // Quebra a ponte das questões (Tabela Intermediária)
+      await prisma.quizQuestion.deleteMany({ where: { quizId: { in: idsProvas } } });
+
+      // Apaga as questões que ele criou (Supondo que a Question tem um vínculo com o professor)
+      // Se a sua Question não tiver professorId, pode remover esta linha abaixo.
+      await prisma.question.deleteMany({ where: { professor: { id: userId } } });
+
+      // Apaga as provas
+      await prisma.quiz.deleteMany({ where: { professorId: userId } });
+    }
+
+    // 4. Finalmente, apaga o usuário
+    await prisma.user.delete({ where: { id: userId } });
+
+    res.json({ message: 'Conta e todos os dados vinculados foram excluídos com sucesso!' });
+  } catch (error) {
+    console.error("Erro ao excluir conta:", error);
+    res.status(500).json({ error: 'Erro ao tentar excluir a conta do sistema.' });
+  }
+});
 export default router;

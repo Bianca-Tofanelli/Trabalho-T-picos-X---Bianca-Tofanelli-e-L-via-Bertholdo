@@ -7,7 +7,6 @@ import QuizPlayer from './components/QuizPlayer';
 import QuizResult from './components/QuizResult';
 
 function App() {
-  // Inicialização direta para evitar avisos de performance do React
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
   const [userRole, setUserRole] = useState(() => localStorage.getItem('userRole'));
   const [currentView, setCurrentView] = useState('home');
@@ -21,17 +20,40 @@ function App() {
     setCurrentView('home');
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmar = window.prompt("⚠️ ATENÇÃO: Esta ação é irreversível e apagará todos os seus dados e provas!\n\nDigite 'EXCLUIR' para confirmar:");
+    
+    if (confirmar !== 'EXCLUIR') {
+      return alert("Ação cancelada. Sua conta está segura.");
+    }
+
+    try {
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`/api/auth/usuario/${userId}`, { 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      if (!response.ok) throw new Error('Falha ao excluir a conta.');
+
+      alert("Sua conta foi excluída com sucesso. Sentiremos sua falta!");
+      handleLogout(); // Expulsa o usuário limpando o sistema
+      
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao tentar excluir a conta. Verifique sua conexão.");
+    }
+  };
+
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setUserRole(localStorage.getItem('userRole'));
   };
 
-  // Se o usuário não estiver logado, bloqueia a entrada e mostra o Login
   if (!isAuthenticated) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Estilização dos botões de navegação
   const getButtonClass = (viewName) => {
     const baseClass = "font-bold transition-colors duration-200 px-4 py-2 rounded-lg ";
     return baseClass + (currentView === viewName 
@@ -74,22 +96,34 @@ function App() {
       {/* Área Dinâmica de Conteúdo */}
       <main className="max-w-5xl mx-auto">
         {currentView === 'home' && (
-          <div className="text-center mt-20 p-10 bg-white rounded-3xl border border-gray-100 shadow-sm">
+          <div className="text-center mt-20 p-10 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-6">
             <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
               Bem-vindo ao Sistema, {userRole === 'PROFESSOR' ? 'Professor(a)' : 'Aluno(a)'}!
             </h1>
             <p className="text-gray-500 text-lg">Use o menu superior para gerenciar suas avaliações.</p>
+            
+            {/* 👇 NOVA ÁREA DE CONFIGURAÇÕES DA CONTA 👇 */}
+            <div className="pt-10 mt-10 border-t border-gray-100 max-w-sm mx-auto">
+              <p className="text-sm text-gray-400 mb-4 uppercase font-bold tracking-wider">Configurações da Conta</p>
+              <button 
+                onClick={handleDeleteAccount}
+                className="w-full bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 font-bold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center gap-2 group"
+              >
+                <svg className="w-5 h-5 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Excluir Minha Conta Permanentemente
+              </button>
+            </div>
           </div>
         )}
         
         {currentView === 'create' && <QuizCreator />}
         {currentView === 'teacher' && <TeacherDashboard />}
         
-        {/* 👇 AQUI ESTÁ A ATUALIZAÇÃO 👇 */}
         {currentView === 'student' && (
           <StudentDashboard onStartQuiz={(id, isResult = false) => {
             setActiveQuizId(id);
-            // Se isResult for true, vai pra tela de resultado. Se false, vai pra prova.
             setCurrentView(isResult ? 'view_result' : 'taking_quiz'); 
           }} />
         )}
@@ -97,15 +131,14 @@ function App() {
         {currentView === 'taking_quiz' && (
           <QuizPlayer 
             quizId={activeQuizId} 
-            onFinish={() => setCurrentView('student')} // Volta pro painel ao entregar
+            onFinish={() => setCurrentView('student')} 
           />
         )}
 
-        {/* 👇 NOVA TELA DE RESULTADOS 👇 */}
         {currentView === 'view_result' && (
           <QuizResult 
             quizId={activeQuizId} 
-            onBack={() => setCurrentView('student')} // Volta pro painel de provas
+            onBack={() => setCurrentView('student')} 
           />
         )}
 

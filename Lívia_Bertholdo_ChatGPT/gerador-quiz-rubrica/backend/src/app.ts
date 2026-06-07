@@ -15,6 +15,8 @@ import { attemptRoutes } from "./modules/attempts/attempt.routes";
 
 import { answerRoutes } from "./modules/answers/answer.routes";
 
+import { rubricRoutes } from "./modules/rubrics/rubric.routes";
+
 const app = express();
 
 app.use(cors());
@@ -52,6 +54,11 @@ app.use(
 app.use(
   "/answers",
   answerRoutes
+);
+
+app.use(
+  "/rubrics",
+  rubricRoutes
 );
 
 app.use(errorMiddleware);

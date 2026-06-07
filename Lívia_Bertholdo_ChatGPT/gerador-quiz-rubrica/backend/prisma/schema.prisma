@@ -30,17 +30,17 @@ enum AttemptStatus {
 }
 
 model User {
-  id            String      @id @default(uuid())
-  name          String
-  email         String      @unique
-  passwordHash  String
-  role          UserRole
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
 
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  quizzes       Quiz[]
-  attempts      Attempt[]
+  quizzes  Quiz[]
+  attempts Attempt[]
 
   refreshTokens RefreshToken[]
 
@@ -49,26 +49,25 @@ model User {
 }
 
 model Quiz {
-  id              String        @id @default(uuid())
+  id String @id @default(uuid())
 
-  title           String
-  description     String?
+  title       String
+  description String?
 
-  status          QuizStatus    @default(DRAFT)
+  status QuizStatus @default(DRAFT)
 
-  timeLimit       Int?
-  maxAttempts     Int           @default(1)
+  timeLimit   Int?
+  maxAttempts Int  @default(1)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  professorId     String
-  professor       User          @relation(fields: [professorId], references: [id])
+  professorId String
+  professor   User   @relation(fields: [professorId], references: [id])
 
-  questions       Question[]
-  rubrics         Rubric[]
-  attempts        Attempt[]
-  reports         Report[]
+  questions Question[]
+  attempts  Attempt[]
+  reports   Report[]
 
   @@index([professorId])
   @@index([status])
@@ -76,59 +75,60 @@ model Quiz {
 }
 
 model Question {
-  id              String          @id @default(uuid())
+  id String @id @default(uuid())
 
-  statement       String
-  points          Float           @default(1)
+  statement String
+  points    Float  @default(1)
 
-  type            QuestionType
+  type QuestionType
 
-  order           Int
+  order Int
 
-  createdAt       DateTime        @default(now())
+  createdAt DateTime @default(now())
 
-  quizId          String
-  quiz            Quiz            @relation(fields: [quizId], references: [id])
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id])
 
-  alternatives    Alternative[]
-  answers         Answer[]
+  alternatives Alternative[]
+  answers      Answer[]
+  rubrics      Rubric[]
 
   @@index([quizId])
   @@map("questions")
 }
 
 model Alternative {
-  id              String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  text            String
+  text String
 
-  isCorrect       Boolean     @default(false)
+  isCorrect Boolean @default(false)
 
-  questionId      String
-  question        Question    @relation(fields: [questionId], references: [id])
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
 
   @@index([questionId])
   @@map("alternatives")
 }
 
 model Attempt {
-  id              String          @id @default(uuid())
+  id String @id @default(uuid())
 
-  startedAt       DateTime        @default(now())
-  finishedAt      DateTime?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
 
-  score           Float?
+  score Float?
 
-  status          AttemptStatus   @default(IN_PROGRESS)
+  status AttemptStatus @default(IN_PROGRESS)
 
-  studentId       String
-  student         User            @relation(fields: [studentId], references: [id])
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id])
 
-  quizId          String
-  quiz            Quiz            @relation(fields: [quizId], references: [id])
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id])
 
-  answers         Answer[]
-  feedbacks       Feedback[]
+  answers   Answer[]
+  feedbacks Feedback[]
 
   @@index([studentId])
   @@index([quizId])
@@ -137,23 +137,23 @@ model Attempt {
 }
 
 model Answer {
-  id                  String          @id @default(uuid())
+  id String @id @default(uuid())
 
-  textAnswer          String?
+  textAnswer String?
 
   selectedAlternative String?
 
-  isCorrect           Boolean?
+  isCorrect Boolean?
 
-  score               Float?
+  score Float?
 
-  createdAt           DateTime        @default(now())
+  createdAt DateTime @default(now())
 
-  attemptId           String
-  attempt             Attempt         @relation(fields: [attemptId], references: [id])
+  attemptId String
+  attempt   Attempt @relation(fields: [attemptId], references: [id])
 
-  questionId          String
-  question            Question        @relation(fields: [questionId], references: [id])
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
 
   @@index([attemptId])
   @@index([questionId])
@@ -161,45 +161,45 @@ model Answer {
 }
 
 model Rubric {
-  id              String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  title           String
+  title String
 
-  description     String?
+  description String?
 
-  criteria        Json
+  criteria Json
 
-  maxScore        Float
+  maxScore Float
 
-  createdAt       DateTime    @default(now())
+  createdAt DateTime @default(now())
 
-  quizId          String
-  quiz            Quiz        @relation(fields: [quizId], references: [id])
+  quizId String
+  quiz   Quiz @relation(fields: [questionId], references: [id])
 
-  feedbacks       Feedback[]
+  feedbacks Feedback[]
 
-  @@index([quizId])
+  @@index([questionId])
   @@map("rubrics")
 }
 
 model Feedback {
-  id              String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  overallScore    Float?
+  overallScore Float?
 
-  strengths       String?
+  strengths String?
 
-  weaknesses      String?
+  weaknesses String?
 
-  suggestions     String?
+  suggestions String?
 
-  generatedAt     DateTime    @default(now())
+  generatedAt DateTime @default(now())
 
-  attemptId       String
-  attempt         Attempt     @relation(fields: [attemptId], references: [id])
+  attemptId String
+  attempt   Attempt @relation(fields: [attemptId], references: [id])
 
-  rubricId        String?
-  rubric          Rubric?     @relation(fields: [rubricId], references: [id])
+  rubricId String?
+  rubric   Rubric? @relation(fields: [rubricId], references: [id])
 
   @@index([attemptId])
   @@index([rubricId])
@@ -207,38 +207,38 @@ model Feedback {
 }
 
 model Report {
-  id                  String      @id @default(uuid())
+  id String @id @default(uuid())
 
-  title               String
+  title String
 
-  totalStudents       Int         @default(0)
+  totalStudents Int @default(0)
 
-  averageScore        Float?
+  averageScore Float?
 
-  highestScore        Float?
+  highestScore Float?
 
-  lowestScore         Float?
+  lowestScore Float?
 
-  generatedAt         DateTime    @default(now())
+  generatedAt DateTime @default(now())
 
-  quizId              String
-  quiz                Quiz        @relation(fields: [quizId], references: [id])
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id])
 
   @@index([quizId])
   @@map("reports")
 }
 
 model RefreshToken {
-  id          String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  token       String   @unique
+  token String @unique
 
-  expiresAt   DateTime
+  expiresAt DateTime
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@map("refresh_tokens")

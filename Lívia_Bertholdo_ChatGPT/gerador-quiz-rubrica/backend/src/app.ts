@@ -7,6 +7,8 @@ import { errorMiddleware } from "./shared/middlewares/errorMiddleware";
 
 import { questionRoutes } from "./modules/questions/question.routes";
 
+import { alternativeRoutes } from "./modules/alternatives/alternative.routes";
+
 const app = express();
 
 app.use(cors());
@@ -24,6 +26,11 @@ app.use("/auth", authRoutes);
 app.use(
   "/questions",
   questionRoutes
+);
+
+app.use(
+  "/alternatives",
+  alternativeRoutes
 );
 
 app.use(errorMiddleware);

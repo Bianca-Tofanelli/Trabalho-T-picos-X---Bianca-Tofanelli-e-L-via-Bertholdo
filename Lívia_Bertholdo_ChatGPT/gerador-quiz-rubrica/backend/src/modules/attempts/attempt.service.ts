@@ -86,6 +86,71 @@ export class AttemptService {
       );
     }
 
+    let totalScore = 0;
+
+    const answers =
+      await prisma.answer.findMany({
+        where: {
+          attemptId,
+        },
+        include: {
+          question: {
+            include: {
+              alternatives: true,
+            },
+          },
+        },
+      });
+
+    for (const answer of answers) {
+      const question =
+        answer.question;
+
+      if (
+        question.type ===
+        "DISSERTATIVE"
+      ) {
+        continue;
+      }
+
+      const correctAlternative =
+        question.alternatives.find(
+          (
+            alternative
+          ) =>
+            alternative.isCorrect
+        );
+
+      const isCorrect =
+        answer.selectedAlternative ===
+        correctAlternative?.id;
+
+      const score = isCorrect
+        ? question.points
+        : 0;
+
+      await prisma.answer.update({
+        where: {
+          id: answer.id,
+        },
+        data: {
+          isCorrect,
+          score,
+        },
+      });
+
+      totalScore += score;
+    }
+
+    await prisma.attempt.update({
+      where: {
+        id: attemptId,
+      },
+      data: {
+        score: totalScore,
+      },
+    });
+
     return this.repository.finish(
       attemptId
     );

@@ -13,6 +13,8 @@ import { quizRoutes } from "./modules/quizzes/quiz.routes";
 
 import { attemptRoutes } from "./modules/attempts/attempt.routes";
 
+import { answerRoutes } from "./modules/answers/answer.routes";
+
 const app = express();
 
 app.use(cors());
@@ -45,6 +47,11 @@ app.use(
 app.use(
   "/attempts",
   attemptRoutes
+);
+
+app.use(
+  "/answers",
+  answerRoutes
 );
 
 app.use(errorMiddleware);

@@ -9,6 +9,14 @@ export class AuthRepository {
     });
   }
 
+  async findUserById(id: string) {
+    return prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+  }
+
   async saveRefreshToken(
     token: string,
     userId: string,

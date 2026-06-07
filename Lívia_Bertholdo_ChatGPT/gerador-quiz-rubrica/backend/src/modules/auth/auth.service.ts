@@ -132,4 +132,26 @@ export class AuthService {
       refreshToken
     );
   }
+
+  async me(userId: string) {
+    const user =
+      await this.repository.findUserById(
+        userId
+      );
+
+    if (!user) {
+      throw new AppError(
+        "Usuário não encontrado",
+        404
+      );
+    }
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      createdAt: user.createdAt,
+    };
+  }
 }

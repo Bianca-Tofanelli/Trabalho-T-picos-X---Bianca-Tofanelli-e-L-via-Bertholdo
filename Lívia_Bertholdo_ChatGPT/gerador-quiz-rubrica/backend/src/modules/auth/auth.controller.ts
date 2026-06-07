@@ -37,4 +37,16 @@ export class AuthController {
 
     return res.status(204).send();
   }
+
+  async me(
+    req: Request,
+    res: Response
+  ) {
+    const result =
+      await this.service.me(
+        req.user!.id
+      );
+
+    return res.status(200).json(result);
+  }
 }

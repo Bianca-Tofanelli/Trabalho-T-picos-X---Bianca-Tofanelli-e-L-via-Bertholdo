@@ -40,31 +40,62 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 2. DASHBOARD DO ALUNO
+// 2. DASHBOARD DO ALUNO (COM SISTEMA DE DIAGNÓSTICO NO TERMINAL)
 router.get('/dashboard/aluno/:studentId', async (req, res) => {
   try {
     const idAluno = parseInt(req.params.studentId);
+    
+    // Busca professores ativos
+    const professoresAtivos = await prisma.user.findMany({ where: { role: 'PROFESSOR' } });
+    const idsProfessoresAtivos = professoresAtivos.map(p => p.id);
+
     const todasProvas = await prisma.quiz.findMany();
     const submissoes = await prisma.submission.findMany({ where: { studentId: idAluno } });
-
     const idsProvasFeitas = submissoes.map(s => s.quizId);
-    const naoFeitas = todasProvas.filter(q => !idsProvasFeitas.includes(q.id));
     
     const now = new Date();
 
-    const available = naoFeitas.filter(q => {
+    // 🚨 LOGS DE AUXÍLIO NO TERMINAL 🚨
+    console.log("\n--- 🔍 INVESTIGANDO SUMIÇO DE PROVAS ---");
+    console.log(`Horário Atual do Servidor: ${now.toISOString()}`);
+    console.log(`IDs de Professores Ativos no Banco: [${idsProfessoresAtivos.join(', ')}]`);
+    console.log(`Total de provas cadastradas no banco: ${todasProvas.length}`);
+
+    const available = [];
+    const missed = [];
+
+    for (const q of todasProvas) {
+      // 1. Checa se o aluno já fez
+      if (idsProvasFeitas.includes(q.id)) {
+        console.log(`💡 Prova "${q.title}" (ID: ${q.id}) -> Omitida da lista porque o aluno já respondeu.`);
+        continue;
+      }
+
+      // 2. Checa se a prova pertence a um professor ativo
+      if (!idsProfessoresAtivos.includes(q.professorId)) {
+        console.log(`⚠️ Prova "${q.title}" (ID: ${q.id}) -> ESCONDIDA! O professor ID ${q.professorId} que a criou não foi localizado como 'PROFESSOR' ativo.`);
+        continue;
+      }
+
       const inicio = q.startDate ? new Date(q.startDate) : null;
       const fim = q.endDate ? new Date(q.endDate) : null;
-      return (!inicio || now >= inicio) && (!fim || now <= fim);
-    });
+      
+      const jaComecou = !inicio || now >= inicio;
+      const naoTerminou = !fim || now <= fim;
 
-    const missed = naoFeitas.filter(q => {
-      const fim = q.endDate ? new Date(q.endDate) : null;
-      return fim && now > fim;
-    });
-    
+      if (jaComecou && naoTerminou) {
+        available.push(q);
+      } else if (fim && now > fim) {
+        missed.push(q);
+      } else {
+        // 3. Checa se barrou no horário
+        console.log(`⏳ Prova "${q.title}" (ID: ${q.id}) -> BLOQUEADA CRONOLOGICAMENTE! Só vai aparecer quando o relógio bater ${inicio?.toISOString()}`);
+      }
+    }
+
     const completed = submissoes.map(sub => {
       const quiz = todasProvas.find(q => q.id === sub.quizId);
+      if (!quiz) return null;
       
       let liberado = false;
       if (quiz.feedbackStrategy === 'IMMEDIATE') liberado = true;
@@ -77,14 +108,14 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
         notaFinal: sub.score,
         podeVerResultado: liberado 
       };
-    });
+    }).filter(Boolean);
 
     res.json({ available, completed, missed });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Erro ao carregar o painel.' });
   }
 });
-
 // 3. SUBMETER E CORRIGIR A PROVA AUTOMATICAMENTE
 router.post('/:id/submeter', async (req, res) => {
   try {
@@ -103,15 +134,17 @@ router.post('/:id/submeter', async (req, res) => {
     for (const link of prova.questions) {
       const q = link.question;
       const detalhes = JSON.parse(q.details); 
+      const pesoDaQuestao = parseFloat(detalhes.peso || 1); // 👈 Pega o peso da questão
+      
       const respostaDoAluno = answers[q.id];
       let isCorrect = null; 
 
       if (q.type === 'MULTIPLE_CHOICE') {
         isCorrect = (respostaDoAluno === detalhes.correctOptionIndex);
-        if (isCorrect) acertos += 1;
+        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
       } else if (q.type === 'TRUE_FALSE') {
         isCorrect = (respostaDoAluno === detalhes.correctAnswer);
-        if (isCorrect) acertos += 1;
+        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
       } else if (q.type === 'ESSAY') {
         if (respostaDoAluno && typeof respostaDoAluno === 'string' && respostaDoAluno.trim() !== "") {
           temDissertativaRespondida = true;
@@ -122,8 +155,6 @@ router.post('/:id/submeter', async (req, res) => {
     }
 
     const statusDaProva = temDissertativaRespondida ? "PENDING_REVIEW" : "GRADED";
-    
-    // 👇 A CORREÇÃO ESTÁ AQUI: O sistema NUNCA mais vai anular os acertos automáticos!
     const notaCalculada = acertos; 
 
     await prisma.submission.create({
@@ -209,7 +240,7 @@ router.patch('/:id/liberar', async (req, res) => {
   }
 });
 
-// 7. BUSCAR PROVAS AGUARDANDO CORREÇÃO (Atualizado para esconder dissertativas em branco)
+// 7. BUSCAR PROVAS AGUARDANDO CORREÇÃO
 router.get('/professor/:professorId/pendentes', async (req, res) => {
   try {
     const { professorId } = req.params;
@@ -227,20 +258,23 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
       const provaOrig = provinces.find(p => p.id === sub.quizId);
       const respostasAluno = JSON.parse(sub.answers);
 
-      // Filtra para remover da correção as dissertativas que o aluno deixou em branco
       const dissertativas = provaOrig.questions
         .map(pq => pq.question)
         .filter(q => q.type === 'ESSAY')
         .filter(q => {
           const resp = respostasAluno[q.id]?.valor;
-          return resp && typeof resp === 'string' && resp.trim() !== ""; // 👈 SÓ ENTRA SE TIVER TEXTO
+          return resp && typeof resp === 'string' && resp.trim() !== ""; 
         })
-        .map(q => ({
-          idQuestao: q.id,
-          enunciado: q.content,
-          rubrica: JSON.parse(q.details).rubric,
-          respostaDoAluno: respostasAluno[q.id].valor
-        }));
+        .map(q => {
+          const detalhes = JSON.parse(q.details);
+          return {
+            idQuestao: q.id,
+            enunciado: q.content,
+            rubrica: detalhes.rubric,
+            pesoMaximo: parseFloat(detalhes.peso || 1), // 👈 Manda pro frontend quanto essa questão vale!
+            respostaDoAluno: respostasAluno[q.id].valor
+          };
+        });
 
       return {
         submissaoId: sub.id,
@@ -251,7 +285,6 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
       };
     });
 
-    // Filtro de segurança extra: remove cartões que por ventura fiquem totalmente sem dissertativas
     const tarefasValidas = tarefas.filter(t => t.dissertativas.length > 0);
 
     res.json(tarefasValidas);
@@ -259,7 +292,6 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar pendências.' });
   }
 });
-
 // 8. RECEBER A NOTA DA DISSERTATIVA E FINALIZAR A PROVA
 router.post('/submissao/:id/avaliar', async (req, res) => {
   try {

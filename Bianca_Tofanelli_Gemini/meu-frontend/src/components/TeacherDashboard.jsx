@@ -112,11 +112,17 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleAvaliar = async (submissaoId, acertosAutomaticos) => {
-    const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos} ponto(s) nas questões fechadas.\nQuantos pontos você dá para as respostas dissertativas?`);
+  const handleAvaliar = async (submissaoId, acertosAutomaticos, dissertativasDoAluno) => {
+    // Calcula quanto vale todas as dissertativas somadas dessa prova
+    const totalPossivel = dissertativasDoAluno.reduce((acc, curr) => acc + curr.pesoMaximo, 0);
+
+    const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos.toFixed(1)} pontos.\nA(s) questão(ões) dissertativa(s) do aluno vale(m) no máximo ${totalPossivel.toFixed(1)} pontos no total.\n\nQuantos pontos você dá para ele?`);
+    
     if (notaStr === null) return; 
+    
     const nota = parseFloat(notaStr.replace(',', '.')); 
     if (isNaN(nota)) return alert("Por favor, digite um número válido!");
+
     try {
       const res = await fetch(`/api/quizzes/submissao/${submissaoId}/avaliar`, {
         method: 'POST',
@@ -131,7 +137,6 @@ export default function TeacherDashboard() {
       alert("Erro de conexão ao salvar a nota.");
     }
   };
-
   const toggleNotas = async (quizId) => {
     if (notasExpandidas[quizId]) {
       const novoEstado = { ...notasExpandidas };
@@ -194,8 +199,8 @@ export default function TeacherDashboard() {
               ))}
 
               <button 
-                onClick={() => handleAvaliar(pendencia.submissaoId, pendencia.acertosAutomaticos)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm"
+              onClick={() => handleAvaliar(pendencia.submissaoId, pendencia.acertosAutomaticos, pendencia.dissertativas)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm"
               >
                 Atribuir Nota da Dissertativa e Finalizar
               </button>

@@ -78,52 +78,53 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Erro interno no servidor ao tentar fazer login.' });
   }
 });
-// ROTA PARA EXCLUIR CONTA DE USUÁRIO (ALUNO OU PROFESSOR)
+// ROTA PARA EXCLUIR CONTA DE USUÁRIO (E APAGAR TUDO QUE É DELE NA ORDEM CERTA)
 router.delete('/usuario/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 
-    // 1. Descobre quem é o usuário
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    
-    if (!user) {
-      return res.status(404).json({ error: 'Usuário não encontrado.' });
-    }
+    if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-    // 2. Se for ALUNO: Apaga apenas as provas que ele entregou
     if (user.role === 'ALUNO') {
-      await prisma.submission.deleteMany({
-        where: { studentId: userId }
-      });
-    } 
-    
-    // 3. Se for PROFESSOR: O buraco é mais embaixo. Temos que apagar o império dele.
-    else if (user.role === 'PROFESSOR') {
-      // Pega todas as provas dele
+      // Se for aluno, apaga só as provas que ele entregou
+      await prisma.submission.deleteMany({ where: { studentId: userId } });
+    } else if (user.role === 'PROFESSOR') {
+      // Se for professor, a limpeza precisa seguir a hierarquia do banco
       const provas = await prisma.quiz.findMany({ where: { professorId: userId } });
       const idsProvas = provas.map(p => p.id);
 
-      // Apaga as entregas dos alunos feitas nessas provas
-      await prisma.submission.deleteMany({ where: { quizId: { in: idsProvas } } });
+      if (idsProvas.length > 0) {
+        // 1. Apaga as entregas dos alunos referentes a essas provas
+        await prisma.submission.deleteMany({ where: { quizId: { in: idsProvas } } });
+        
+        // 2. Busca todas as questões que pertencem a essas provas
+        const questoes = await prisma.question.findMany({
+          where: { quizzes: { some: { quizId: { in: idsProvas } } } }
+        });
+        const idsQuestoes = questoes.map(q => q.id);
+
+        // 3. Quebra a ponte que liga as Questões à Prova (tabela QuizQuestion)
+        await prisma.quizQuestion.deleteMany({ where: { quizId: { in: idsProvas } } });
+
+        // 4. Apaga as questões definitivamente
+        if (idsQuestoes.length > 0) {
+          await prisma.question.deleteMany({ where: { id: { in: idsQuestoes } } });
+        }
+      }
       
-      // Quebra a ponte das questões (Tabela Intermediária)
-      await prisma.quizQuestion.deleteMany({ where: { quizId: { in: idsProvas } } });
-
-      // Apaga as questões que ele criou (Supondo que a Question tem um vínculo com o professor)
-      // Se a sua Question não tiver professorId, pode remover esta linha abaixo.
-      await prisma.question.deleteMany({ where: { professor: { id: userId } } });
-
-      // Apaga as provas
+      // 5. AGORA SIM, com a caixa vazia, apaga as provas!
       await prisma.quiz.deleteMany({ where: { professorId: userId } });
     }
 
-    // 4. Finalmente, apaga o usuário
+    // Por fim, apaga a conta do usuário
     await prisma.user.delete({ where: { id: userId } });
 
-    res.json({ message: 'Conta e todos os dados vinculados foram excluídos com sucesso!' });
+    res.json({ message: 'Conta e todos os dados excluídos com sucesso!' });
   } catch (error) {
     console.error("Erro ao excluir conta:", error);
-    res.status(500).json({ error: 'Erro ao tentar excluir a conta do sistema.' });
+    res.status(500).json({ error: 'Erro ao excluir a conta.' });
   }
 });
+
 export default router;

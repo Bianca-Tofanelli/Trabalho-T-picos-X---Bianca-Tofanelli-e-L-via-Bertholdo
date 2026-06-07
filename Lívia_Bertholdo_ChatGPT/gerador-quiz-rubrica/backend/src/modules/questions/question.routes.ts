@@ -34,6 +34,13 @@ questionRoutes.get(
   )
 );
 
+questionRoutes.post(
+  "/:id/duplicate",
+  controller.duplicate.bind(
+    controller
+  )
+);
+
 questionRoutes.get(
   "/:id",
   controller.findById.bind(

@@ -4,6 +4,7 @@ import { AppError } from "../../shared/errors/AppError";
 
 import { CreateQuestionDTO } from "./dto/create-question.dto";
 import { UpdateQuestionDTO } from "./dto/update-question.dto";
+import { FilterQuestionDTO } from "./dto/filter-question.dto";
 
 export class QuestionService {
   private repository =
@@ -15,8 +16,16 @@ export class QuestionService {
     return this.repository.create(data);
   }
 
-  async findAll() {
-    return this.repository.findAll();
+  async findAll(
+    filters?: FilterQuestionDTO,
+    page?: number,
+    limit?: number
+  ) {
+    return this.repository.findAll(
+      filters,
+      page,
+      limit
+    );
   }
 
   async findById(id: string) {
@@ -49,5 +58,19 @@ export class QuestionService {
     await this.findById(id);
 
     await this.repository.delete(id);
+  }
+
+  async duplicate(id: string) {
+    const duplicated =
+      await this.repository.duplicate(id);
+
+    if (!duplicated) {
+      throw new AppError(
+        "Questão não encontrada",
+        404
+      );
+    }
+
+    return duplicated;
   }
 }

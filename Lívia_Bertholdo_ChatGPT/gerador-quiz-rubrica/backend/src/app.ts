@@ -5,6 +5,8 @@ import { authRoutes } from "./modules/auth/auth.routes";
 
 import { errorMiddleware } from "./shared/middlewares/errorMiddleware";
 
+import { questionRoutes } from "./modules/questions/question.routes";
+
 const app = express();
 
 app.use(cors());
@@ -18,6 +20,11 @@ app.get("/", (_, res) => {
 });
 
 app.use("/auth", authRoutes);
+
+app.use(
+  "/questions",
+  questionRoutes
+);
 
 app.use(errorMiddleware);
 

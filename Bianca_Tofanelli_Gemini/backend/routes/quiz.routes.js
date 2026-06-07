@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// 1. SALVAR PROVA (Com as datas corrigidas)
+// 1. SALVAR PROVA
 router.post('/', async (req, res) => {
   try {
     const { title, duration, startDate, endDate, professorId, questions, releaseMode } = req.body;
@@ -40,7 +40,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 2. DASHBOARD DO ALUNO (Atualizado com filtros dinâmicos de início e fim de prazo)
+// 2. DASHBOARD DO ALUNO
 router.get('/dashboard/aluno/:studentId', async (req, res) => {
   try {
     const idAluno = parseInt(req.params.studentId);
@@ -48,20 +48,16 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
     const submissoes = await prisma.submission.findMany({ where: { studentId: idAluno } });
 
     const idsProvasFeitas = submissoes.map(s => s.quizId);
-    
-    // Filtra as provas que o aluno ainda não realizou
     const naoFeitas = todasProvas.filter(q => !idsProvasFeitas.includes(q.id));
     
     const now = new Date();
 
-    // Provas Disponíveis: Prazo já começou e ainda não expirou
     const available = naoFeitas.filter(q => {
       const inicio = q.startDate ? new Date(q.startDate) : null;
       const fim = q.endDate ? new Date(q.endDate) : null;
       return (!inicio || now >= inicio) && (!fim || now <= fim);
     });
 
-    // Provas Perdidas: O aluno não fez e a data limite já passou
     const missed = naoFeitas.filter(q => {
       const fim = q.endDate ? new Date(q.endDate) : null;
       return fim && now > fim;
@@ -101,7 +97,7 @@ router.post('/:id/submeter', async (req, res) => {
     });
 
     let acertos = 0;
-    let temDissertativa = false;
+    let temDissertativaRespondida = false; 
     let respostasCorrigidas = {};
 
     for (const link of prova.questions) {
@@ -117,14 +113,18 @@ router.post('/:id/submeter', async (req, res) => {
         isCorrect = (respostaDoAluno === detalhes.correctAnswer);
         if (isCorrect) acertos += 1;
       } else if (q.type === 'ESSAY') {
-        temDissertativa = true;
+        if (respostaDoAluno && typeof respostaDoAluno === 'string' && respostaDoAluno.trim() !== "") {
+          temDissertativaRespondida = true;
+        }
       }
 
       respostasCorrigidas[q.id] = { valor: respostaDoAluno, isCorrect };
     }
 
-    const statusDaProva = temDissertativa ? "PENDING_REVIEW" : "GRADED";
-    const notaCalculada = temDissertativa ? null : acertos;
+    const statusDaProva = temDissertativaRespondida ? "PENDING_REVIEW" : "GRADED";
+    
+    // 👇 A CORREÇÃO ESTÁ AQUI: O sistema NUNCA mais vai anular os acertos automáticos!
+    const notaCalculada = acertos; 
 
     await prisma.submission.create({
       data: {
@@ -141,7 +141,6 @@ router.post('/:id/submeter', async (req, res) => {
     res.status(500).json({ error: 'Erro ao corrigir.' });
   }
 });
-
 // 4. BUSCAR A PROVA COM O GABARITO
 router.get('/:id/resultado/:studentId', async (req, res) => {
   try {
@@ -164,7 +163,7 @@ router.get('/:id/resultado/:studentId', async (req, res) => {
   }
 });
 
-// 5. BUSCAR PROVA PARA RESPONDER (🛡️ ANTI-COLA + TRAVA CRONOLÓGICA DE SEGURANÇA 🛡️)
+// 5. BUSCAR PROVA PARA RESPONDER (ANTI-COLA)
 router.get('/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -174,7 +173,6 @@ router.get('/:id', async (req, res) => {
     });
     if (!prova) return res.status(404).json({ error: 'Prova não encontrada.' });
 
-    // Bloqueia o acesso caso tentem burlar a requisição fora do horário permitido
     const now = new Date();
     if (prova.startDate && now < new Date(prova.startDate)) {
       return res.status(403).json({ error: 'Esta prova ainda não está disponível para realização.' });
@@ -211,29 +209,37 @@ router.patch('/:id/liberar', async (req, res) => {
   }
 });
 
-// 7. BUSCAR PROVAS AGUARDANDO CORREÇÃO
+// 7. BUSCAR PROVAS AGUARDANDO CORREÇÃO (Atualizado para esconder dissertativas em branco)
 router.get('/professor/:professorId/pendentes', async (req, res) => {
   try {
     const { professorId } = req.params;
-    const provas = await prisma.quiz.findMany({
+    const provinces = await prisma.quiz.findMany({
       where: { professorId: parseInt(professorId) },
       include: { questions: { include: { question: true } } }
     });
-    const idsProvas = provas.map(p => p.id);
+    const idsProvas = provinces.map(p => p.id);
 
     const pendentes = await prisma.submission.findMany({
       where: { quizId: { in: idsProvas }, status: 'PENDING_REVIEW' }
     });
 
     const tarefas = pendentes.map(sub => {
-      const provaOrig = provas.find(p => p.id === sub.quizId);
+      const provaOrig = provinces.find(p => p.id === sub.quizId);
       const respostasAluno = JSON.parse(sub.answers);
 
-      const dissertativas = provaOrig.questions.map(pq => pq.question).filter(q => q.type === 'ESSAY').map(q => ({
+      // Filtra para remover da correção as dissertativas que o aluno deixou em branco
+      const dissertativas = provaOrig.questions
+        .map(pq => pq.question)
+        .filter(q => q.type === 'ESSAY')
+        .filter(q => {
+          const resp = respostasAluno[q.id]?.valor;
+          return resp && typeof resp === 'string' && resp.trim() !== ""; // 👈 SÓ ENTRA SE TIVER TEXTO
+        })
+        .map(q => ({
           idQuestao: q.id,
           enunciado: q.content,
           rubrica: JSON.parse(q.details).rubric,
-          respostaDoAluno: respostasAluno[q.id]?.valor || "Deixou em branco"
+          respostaDoAluno: respostasAluno[q.id].valor
         }));
 
       return {
@@ -245,7 +251,10 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
       };
     });
 
-    res.json(tarefas);
+    // Filtro de segurança extra: remove cartões que por ventura fiquem totalmente sem dissertativas
+    const tarefasValidas = tarefas.filter(t => t.dissertativas.length > 0);
+
+    res.json(tarefasValidas);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar pendências.' });
   }
@@ -269,18 +278,16 @@ router.post('/submissao/:id/avaliar', async (req, res) => {
   }
 });
 
-// 9. PROFESSOR LER SUAS PROVAS (Agora com contador de alunos e respostas)
+// 9. PROFESSOR LER SUAS PROVAS
 router.get('/professor/:professorId', async (req, res) => {
   try {
-    const provas = await prisma.quiz.findMany({
+    const provinces = await prisma.quiz.findMany({
       where: { professorId: parseInt(req.params.professorId) }
     });
 
-    // Conta o total de alunos no sistema
     const totalAlunos = await prisma.user.count({ where: { role: 'ALUNO' } });
 
-    // Conta quantas respostas cada prova já teve
-    const provasFormatadas = await Promise.all(provas.map(async (q) => {
+    const provincesFormatadas = await Promise.all(provinces.map(async (q) => {
       const totalRespostas = await prisma.submission.count({ where: { quizId: q.id } });
       
       return {
@@ -292,7 +299,7 @@ router.get('/professor/:professorId', async (req, res) => {
       };
     }));
 
-    res.json(provasFormatadas);
+    res.json(provincesFormatadas);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar provas.' });
   }

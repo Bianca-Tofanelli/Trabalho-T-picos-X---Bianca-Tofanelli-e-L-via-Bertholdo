@@ -26,28 +26,37 @@ export default function QuizResult({ quizId, onBack }) {
   if (error) return <div className="p-10 text-center font-bold text-red-600">{error}</div>;
 
   const { prova, entrega } = resultado;
+  const isPendente = entrega.status === 'PENDING_REVIEW';
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-gray-200 mt-8">
-      <div className="border-b border-gray-200 pb-4 flex justify-between items-center mb-6">
+      
+      {/* CABEÇALHO COM A NOTA INTELIGENTE */}
+      <div className="border-b border-gray-200 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Resultado: {prova.title}</h2>
-          <p className="text-gray-500 mt-1">Status: {entrega.status === 'GRADED' ? 'Corrigida' : 'Aguardando Professor'}</p>
+          <p className="text-gray-500 mt-1">Status: {isPendente ? 'Aguardando Professor' : 'Corrigida'}</p>
         </div>
-        <div className="bg-blue-50 text-blue-800 px-6 py-3 rounded-xl border border-blue-200 text-center">
-          <span className="block text-sm font-bold uppercase">Nota Final</span>
-          <span className="text-3xl font-black">{entrega.nota !== null ? entrega.nota : '--'}</span>
+        
+        <div className={`px-6 py-3 rounded-xl border text-center min-w-[150px] ${isPendente ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
+          <span className="block text-sm font-bold uppercase">
+            {isPendente ? 'Nota Parcial' : 'Nota Final'}
+          </span>
+          <span className="text-3xl font-black">
+            {entrega.nota !== null ? entrega.nota : '0'} {isPendente && '+ ?'}
+          </span>
+          {isPendente && (
+            <span className="block text-xs mt-1 font-medium text-yellow-700">
+              *Aguardando dissertativa
+            </span>
+          )}
         </div>
       </div>
 
       <div className="space-y-6">
         {prova.questions.map((q, index) => {
           const respostaAluno = entrega.respostas[q.id];
-          
-          // 👇 O DETECTOR DE QUESTÃO EM BRANCO 👇
           const emBranco = !respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || respostaAluno.valor === "";
-          
-          // Só considera que "errou" se ele de fato tiver respondido algo e estiver errado.
           const acertou = !emBranco && respostaAluno?.isCorrect;
 
           return (
@@ -70,7 +79,6 @@ export default function QuizResult({ quizId, onBack }) {
                     respostaAluno?.valor)}
                 </p>
 
-                {/* Exibe o gabarito se o aluno errou, deixou em branco ou se for dissertativa */}
                 {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">

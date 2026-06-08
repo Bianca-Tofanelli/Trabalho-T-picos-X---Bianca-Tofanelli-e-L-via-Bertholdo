@@ -19,10 +19,11 @@ export default function QuizCreator() {
       id: Date.now() + Math.random(), 
       content: '',
       type: type,
+      // 👇 INCLUSÃO: Agora a 'rubric' (rúbrica) nasce vazia em todos os tipos de questão
       details: type === 'MULTIPLE_CHOICE' 
-        ? { options: ['', '', '', ''], correctOptionIndex: 0, peso: 1 } // Começa com 4 por padrão
+        ? { options: ['', '', '', ''], correctOptionIndex: 0, peso: 1, rubric: '' } 
         : type === 'TRUE_FALSE' 
-          ? { correctAnswer: true, peso: 1 } 
+          ? { correctAnswer: true, peso: 1, rubric: '' } 
           : { keywords: [], rubric: '', peso: 1 } 
     };
     setQuestions([...questions, newQuestion]);
@@ -45,14 +46,11 @@ export default function QuizCreator() {
     }));
   };
 
-  // 👇 NOVA LÓGICA: Adiciona uma nova alternativa em branco
   const handleAddOption = (q) => {
-    // Limite amigável de 10 alternativas para não quebrar a tela
     if (q.details.options.length >= 10) return alert('Máximo de 10 alternativas permitido.');
     updateQuestionDetails(q.id, 'options', [...q.details.options, '']);
   };
 
-  // 👇 NOVA LÓGICA: Remove uma alternativa e protege a resposta correta
   const handleRemoveOption = (q, indexToRemove) => {
     if (q.details.options.length <= 2) {
       return alert('A questão deve ter pelo menos 2 alternativas!');
@@ -61,11 +59,9 @@ export default function QuizCreator() {
     const newOptions = q.details.options.filter((_, i) => i !== indexToRemove);
     updateQuestionDetails(q.id, 'options', newOptions);
 
-    // Se o professor apagou a resposta que estava marcada como correta, reseta para a letra A (índice 0)
     if (q.details.correctOptionIndex === indexToRemove) {
       updateQuestionDetails(q.id, 'correctOptionIndex', 0);
     } 
-    // Se apagou uma alternativa ANTES da correta, o índice da correta cai 1 casinha para acompanhar
     else if (q.details.correctOptionIndex > indexToRemove) {
       updateQuestionDetails(q.id, 'correctOptionIndex', q.details.correctOptionIndex - 1);
     }
@@ -75,22 +71,14 @@ export default function QuizCreator() {
   const isSomaDez = somaDosPontos.toFixed(1) === '10.0';
 
   const handleSaveQuiz = async () => {
-    if (!quizData.title) {
-      return alert('Preencha o título da prova!');
-    }
-    if (!quizData.startDate) {
-      return alert('Escolha a data e horário de INÍCIO da disponibilidade da prova!');
-    }
-    if (!quizData.endDate) {
-      return alert('Escolha a data e horário de FIM da disponibilidade da prova!');
-    }
-    
+    if (!quizData.title) return alert('Preencha o título da prova!');
+    if (!quizData.startDate) return alert('Escolha a data de início!');
+    if (!quizData.endDate) return alert('Escolha a data de fim!');
     if (new Date(quizData.startDate) >= new Date(quizData.endDate)) {
-      return alert('Ops! A data de encerramento da prova deve ser DEPOIS da data de início.');
+      return alert('A data de encerramento deve ser DEPOIS da data de início.');
     }
-
     if (!isSomaDez) {
-      return alert(`A soma dos pesos das questões é ${somaDosPontos.toFixed(1)}. Ela precisa ser EXATAMENTE 10.0 para você poder salvar a prova!`);
+      return alert(`A soma dos pesos é ${somaDosPontos.toFixed(1)}. Ela precisa ser EXATAMENTE 10.0!`);
     }
 
     setIsSaving(true);
@@ -203,20 +191,17 @@ export default function QuizCreator() {
               value={q.content} onChange={e => updateQuestion(q.id, 'content', e.target.value)}
             />
 
+            {/* Renderiza alternativas de Múltipla Escolha */}
             {q.type === 'MULTIPLE_CHOICE' && (
               <div className="space-y-3">
                 {q.details.options.map((opt, i) => (
                   <div key={i} className="flex items-center space-x-2">
-                    {/* Botão Radio para marcar a correta */}
                     <input 
-                      type="radio" 
-                      name={`correct-${q.id}`} 
+                      type="radio" name={`correct-${q.id}`} 
                       checked={q.details.correctOptionIndex === i} 
                       onChange={() => updateQuestionDetails(q.id, 'correctOptionIndex', i)} 
                       className="w-5 h-5 cursor-pointer text-blue-600"
                     />
-                    
-                    {/* Input de texto da alternativa */}
                     <input 
                       type="text" 
                       className={`flex-1 p-2 border rounded outline-none transition-colors ${q.details.correctOptionIndex === i ? 'border-green-500 bg-green-50' : 'focus:border-blue-400'}`} 
@@ -228,14 +213,8 @@ export default function QuizCreator() {
                         updateQuestionDetails(q.id, 'options', newOptions);
                       }} 
                     />
-                    
-                    {/* Botão de Remover Alternativa (Lixeira) */}
                     {q.details.options.length > 2 && (
-                      <button 
-                        onClick={() => handleRemoveOption(q, i)}
-                        className="text-gray-400 hover:text-red-600 transition-colors p-2"
-                        title="Excluir alternativa"
-                      >
+                      <button onClick={() => handleRemoveOption(q, i)} className="text-gray-400 hover:text-red-600 transition-colors p-2" title="Excluir alternativa">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -243,22 +222,16 @@ export default function QuizCreator() {
                     )}
                   </div>
                 ))}
-
-                {/* Botão de Adicionar Nova Alternativa */}
                 {q.details.options.length < 10 && (
-                  <button 
-                    onClick={() => handleAddOption(q)}
-                    className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1 mt-2 transition-colors ml-7"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                    </svg>
+                  <button onClick={() => handleAddOption(q)} className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1 mt-2 transition-colors ml-7">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
                     Adicionar Alternativa
                   </button>
                 )}
               </div>
             )}
 
+            {/* Renderiza alternativas de Verdadeiro ou Falso */}
             {q.type === 'TRUE_FALSE' && (
               <div className="flex space-x-4">
                 <label className="flex items-center space-x-2 cursor-pointer">
@@ -272,12 +245,23 @@ export default function QuizCreator() {
               </div>
             )}
 
-            {q.type === 'ESSAY' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">O que o professor deve avaliar?</label>
-                <textarea className="w-full p-2 border rounded bg-yellow-50 outline-none focus:ring-2 focus:ring-yellow-200" rows="2" placeholder="Ex: 1 ponto para clareza, 1 ponto se citar o conceito..." value={q.details.rubric} onChange={e => updateQuestionDetails(q.id, 'rubric', e.target.value)} />
-              </div>
-            )}
+            {/* 👇 NOVA ÁREA UNIFICADA: Rúbrica / Justificativa para TODAS as questões 👇 */}
+            <div className="mt-5 pt-4 border-t border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {q.type === 'ESSAY' 
+                  ? 'O que deve ser avaliado? (Critério de Correção) *' 
+                  : 'Rúbrica / Justificativa da Resposta (Opcional)'}
+              </label>
+              <textarea 
+                className="w-full p-2 border rounded bg-yellow-50 outline-none focus:ring-2 focus:ring-yellow-200 text-sm" 
+                rows="2" 
+                placeholder={q.type === 'ESSAY' 
+                  ? "Ex: 1 ponto para clareza, 1 ponto se citar o conceito X..." 
+                  : "Explique por que essa é a resposta correta para ajudar o aluno ou a coordenação..."} 
+                value={q.details.rubric || ''} 
+                onChange={e => updateQuestionDetails(q.id, 'rubric', e.target.value)} 
+              />
+            </div>
           </div>
         ))}
       </div>

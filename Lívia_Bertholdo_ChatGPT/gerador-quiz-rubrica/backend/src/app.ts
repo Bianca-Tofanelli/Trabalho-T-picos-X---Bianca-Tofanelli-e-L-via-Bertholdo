@@ -19,6 +19,8 @@ import { rubricRoutes } from "./modules/rubrics/rubric.routes";
 
 import { correctionRoutes } from "./modules/corrections/correction.routes";
 
+import { reportRoutes } from "./modules/reports/report.routes";
+
 const app = express();
 
 app.use(cors());
@@ -66,6 +68,11 @@ app.use(
 app.use(
   "/corrections",
   correctionRoutes
+);
+
+app.use(
+  "/reports",
+  reportRoutes
 );
 
 app.use(errorMiddleware);

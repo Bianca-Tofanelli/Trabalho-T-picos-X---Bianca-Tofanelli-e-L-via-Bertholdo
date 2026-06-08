@@ -95,6 +95,8 @@ export default function Login({ onLoginSuccess }) {
                 >
                   <option value="ALUNO">Aluno</option>
                   <option value="PROFESSOR">Professor</option>
+                  {/* 👇 Nova opção para cadastrar o Secretário 👇 */}
+                  <option value="SECRETARIO">Secretário</option>
                 </select>
               </div>
             </>

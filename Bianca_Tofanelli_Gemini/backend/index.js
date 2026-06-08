@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 // Importamos os arquivos de rotas
 import authRoutes from './routes/auth.routes.js'; 
 import quizRoutes from './routes/quiz.routes.js'; 
@@ -8,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Permite que a API entenda requisições no formato JSON
+app.use(cors());
 app.use(express.json()); 
 
 // Rota de teste simples para ver se o servidor está vivo

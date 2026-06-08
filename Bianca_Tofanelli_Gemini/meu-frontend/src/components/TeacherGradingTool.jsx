@@ -43,6 +43,28 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
   };
 
   const handleSaveGrades = async () => {
+    // 👇 1. TRAVA DE SEGURANÇA (Código otimizado para não irritar o Linter) 👇
+    const essayQuestions = data.questions.filter(q => q.type === 'ESSAY');
+    
+    for (const q of essayQuestions) {
+      const details = typeof q.details === 'string' ? JSON.parse(q.details) : (q.details || {});
+      const pesoMaximo = parseFloat(details.peso || 1);
+
+      // Cria a constante diretamente com o valor final, evitando atribuições inúteis
+      const notaAnalisada = (grades[q.id] && grades[q.id].score !== undefined && grades[q.id].score !== '')
+        ? parseFloat(grades[q.id].score)
+        : parseFloat(data.answers[q.id]?.score || 0);
+
+      // Bloqueia notas acima do peso máximo ou negativas
+      if (notaAnalisada > pesoMaximo) {
+        return alert(`⚠️ AVALIAÇÃO BLOQUEADA!\n\nVocê tentou dar ${notaAnalisada.toFixed(1)} pontos em uma questão que vale no máximo ${pesoMaximo.toFixed(1)} pts.\n\nPor favor, corrija o valor e tente salvar novamente.`);
+      }
+      if (notaAnalisada < 0) {
+        return alert(`⚠️ AVALIAÇÃO BLOQUEADA!\n\nA nota não pode ser negativa.`);
+      }
+    }
+
+    // 2. Se passou na validação, prossegue com o salvamento
     setIsSaving(true);
     try {
       const res = await fetch(`${API_URL}/api/quizzes/submissions/${submissionId}/grade`, {
@@ -86,12 +108,10 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
       ) : (
         <div className="space-y-8">
           {essayQuestions.map((q, index) => {
-            // 👇 CORREÇÃO: Puxa o 'valor' correto enviado pelo aluno 👇
             const studentAnswer = data.answers[q.id]?.valor || "Não respondeu";
             const details = typeof q.details === 'string' ? JSON.parse(q.details) : (q.details || {});
             const rubricText = details.rubric || null;
 
-            // 👇 CORREÇÃO: Captura valores existentes caso a prova já tenha notas salvas 👇
             const savedScore = data.answers[q.id]?.score ?? '';
             const savedFeedback = data.answers[q.id]?.feedback ?? '';
 
@@ -130,7 +150,7 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nota da Questão (Máx: {details.peso || 1} pts):</label>
                       <input 
                         type="text" 
-                        defaultValue={savedScore} // 👈 Mantém a nota visível na tela
+                        defaultValue={savedScore} 
                         className="w-32 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none font-bold"
                         placeholder="Ex: 2.5"
                         onChange={(e) => {
@@ -145,7 +165,7 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Feedback Privado (Opcional):</label>
                       <textarea 
                         rows="3" 
-                        defaultValue={savedFeedback} // 👈 Mantém o comentário visível na tela
+                        defaultValue={savedFeedback} 
                         className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                         placeholder="Escreva um comentário sobre o desempenho nesta questão..."
                         onChange={(e) => handleGradeChange(q.id, 'feedback', e.target.value)}

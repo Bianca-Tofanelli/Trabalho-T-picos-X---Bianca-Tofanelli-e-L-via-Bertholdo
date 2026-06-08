@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import API_URL from '../apiConfig';
 
 export default function StudentDashboard({ onStartQuiz }) {
   const [dashboard, setDashboard] = useState({ available: [], completed: [], missed: [] });
@@ -10,8 +11,8 @@ export default function StudentDashboard({ onStartQuiz }) {
   useEffect(() => {
     const buscarProvas = async () => {
       try {
-        // 👇 Chamando a rota inteligente passando o ID do aluno logado 👇
-        const response = await fetch(`/api/quizzes/dashboard/aluno/${userId}`, {
+        // 👇 AQUI ESTÁ A CORREÇÃO: Variável global inserida antes da rota 👇
+        const response = await fetch(`${API_URL}/api/quizzes/dashboard/aluno/${userId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
 
@@ -105,7 +106,7 @@ export default function StudentDashboard({ onStartQuiz }) {
         </div>
       </section>
 
-      {/* Seção 3: Provas Perdidas (AGORA DINÂMICA) */}
+      {/* Seção 3: Provas Perdidas */}
       <section className="opacity-75">
         <h2 className="text-xl font-bold text-red-700 border-b-2 border-red-100 pb-2 mb-4">
           Provas Perdidas (Prazo Encerrado)

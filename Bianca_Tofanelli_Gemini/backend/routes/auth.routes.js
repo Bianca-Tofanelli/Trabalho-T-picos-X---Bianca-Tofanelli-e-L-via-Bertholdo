@@ -21,12 +21,24 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'Este email já está cadastrado.' });
     }
 
-    // 2. Criptografa a senha (NUNCA salvamos a senha pura no banco!)
+    // 👇 2. A TRAVA DE SEGURANÇA DO SECRETÁRIO 👇
+    if (role === 'SECRETARIO') {
+      const secretarioExistente = await prisma.user.findFirst({
+        where: { role: 'SECRETARIO' }
+      });
+
+      if (secretarioExistente) {
+        return res.status(403).json({ 
+          message: 'Acesso negado: O sistema já possui um Secretário cadastrado. Apenas uma conta administrativa é permitida.' 
+        });
+      }
+    }
+
+    // 3. Criptografa a senha (NUNCA salvamos a senha pura no banco!)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 3. Salva o novo usuário no banco de dados
-    // Agora aceita perfeitamente 'ALUNO', 'PROFESSOR' ou 'SECRETARIO'
+    // 4. Salva o novo usuário no banco de dados
     const newUser = await prisma.user.create({
       data: {
         name,
@@ -36,7 +48,7 @@ router.post('/register', async (req, res) => {
       }
     });
 
-    // 4. Responde ao Frontend que deu tudo certo
+    // 5. Responde ao Frontend que deu tudo certo
     res.status(201).json({ 
       message: 'Usuário cadastrado com sucesso!',
       user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }

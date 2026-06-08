@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import API_URL from '../apiConfig';
+
 export default function QuizCreator() {
   const [isSaving, setIsSaving] = useState(false);
   
@@ -15,7 +16,8 @@ export default function QuizCreator() {
 
   const addQuestion = (type) => {
     const newQuestion = {
-      id: Date.now(), 
+      // 👇 Correção 2: Garante que o ID seja 100% único mesmo com duplo clique
+      id: Date.now() + Math.random(), 
       content: '',
       type: type,
       details: type === 'MULTIPLE_CHOICE' 
@@ -44,9 +46,12 @@ export default function QuizCreator() {
     }));
   };
 
+  // Calcula a soma normalmente
   const somaDosPontos = questions.reduce((acc, q) => acc + Number(q.details.peso || 0), 0);
+  
+  // 👇 Correção 1: Resolve o bug de matemática do JavaScript (ex: 9.999999 !== 10)
+  const isSomaDez = somaDosPontos.toFixed(1) === '10.0';
 
-  // 👇 VERIFICAÇÕES DE SEGURANÇA E DATAS 👇
   const handleSaveQuiz = async () => {
     if (!quizData.title) {
       return alert('Preencha o título da prova!');
@@ -58,12 +63,11 @@ export default function QuizCreator() {
       return alert('Escolha a data e horário de FIM da disponibilidade da prova!');
     }
     
-    // Verifica se o professor não colocou o fim ANTES do início
     if (new Date(quizData.startDate) >= new Date(quizData.endDate)) {
       return alert('Ops! A data de encerramento da prova deve ser DEPOIS da data de início.');
     }
 
-    if (somaDosPontos !== 10) {
+    if (!isSomaDez) {
       return alert(`A soma dos pesos das questões é ${somaDosPontos.toFixed(1)}. Ela precisa ser EXATAMENTE 10.0 para você poder salvar a prova!`);
     }
 
@@ -146,7 +150,7 @@ export default function QuizCreator() {
         <div className="flex justify-between items-end border-b border-gray-200 pb-2">
           <h2 className="text-xl font-bold text-gray-800">Questões ({questions.length})</h2>
           
-          <div className={`px-4 py-2 rounded-lg font-bold text-sm ${somaDosPontos === 10 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200 animate-pulse'}`}>
+          <div className={`px-4 py-2 rounded-lg font-bold text-sm ${isSomaDez ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200 animate-pulse'}`}>
             Soma da Prova: {somaDosPontos.toFixed(1)} / 10.0 pts
           </div>
         </div>
@@ -164,7 +168,7 @@ export default function QuizCreator() {
                     type="number" step="0.1" min="0" 
                     className="w-16 p-1 text-center font-bold border rounded outline-none"
                     value={q.details.peso || 1}
-                    onChange={(e) => updateQuestionDetails(q.id, 'peso', parseFloat(e.target.value))}
+                    onChange={(e) => updateQuestionDetails(q.id, 'peso', parseFloat(e.target.value) || 0)}
                   />
                 </div>
                 <button onClick={() => removeQuestion(q.id)} className="text-red-500 hover:text-red-700 text-sm font-medium">Remover</button>
@@ -224,14 +228,14 @@ export default function QuizCreator() {
         
         <button 
           onClick={handleSaveQuiz} 
-          disabled={isSaving || somaDosPontos !== 10} 
+          disabled={isSaving || !isSomaDez} 
           className={`px-8 py-3 rounded-xl font-bold shadow-md w-full md:w-auto transition-colors ${
-            somaDosPontos === 10 
+            isSomaDez 
               ? 'bg-blue-600 hover:bg-blue-700 text-white' 
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isSaving ? 'Salvando...' : somaDosPontos === 10 ? 'Salvar Prova no Sistema' : 'A soma deve ser 10.0'}
+          {isSaving ? 'Salvando...' : isSomaDez ? 'Salvar Prova no Sistema' : 'A soma deve ser 10.0'}
         </button>
       </div>
     </div>

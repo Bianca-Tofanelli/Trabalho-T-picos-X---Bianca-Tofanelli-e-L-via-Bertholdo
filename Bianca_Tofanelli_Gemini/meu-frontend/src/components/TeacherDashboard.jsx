@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import API_URL from '../apiConfig';
+
 export default function TeacherDashboard() {
   const [quizzes, setQuizzes] = useState([]);
   const [pendentes, setPendentes] = useState([]); 
@@ -17,22 +18,33 @@ export default function TeacherDashboard() {
   }, []);
 
   useEffect(() => {
+    let isMounted = true; // 🛡️ Proteção contra Memory Leak
+
     const carregarPainel = async () => {
       try {
         const resQuizzes = await fetch(`${API_URL}/api/quizzes/professor/${userId}`);
-        if (resQuizzes.ok) setQuizzes(await resQuizzes.json());
+        const dataQuizzes = resQuizzes.ok ? await resQuizzes.json() : [];
 
         const resPendentes = await fetch(`${API_URL}/api/quizzes/professor/${userId}/pendentes`);
-        if (resPendentes.ok) setPendentes(await resPendentes.json());
+        const dataPendentes = resPendentes.ok ? await resPendentes.json() : [];
+
+        if (isMounted) {
+          setQuizzes(dataQuizzes);
+          setPendentes(dataPendentes);
+        }
       } catch (err) {
         console.error(err); 
-        setError('Falha de conexão ao carregar os dados do painel.');
+        if (isMounted) setError('Falha de conexão ao carregar os dados do painel.');
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     if (userId) carregarPainel();
+
+    return () => {
+      isMounted = false; // Cleanup para o linter
+    };
   }, [userId]);
 
   const formatarTempo = (dataAlvo) => {
@@ -83,7 +95,6 @@ export default function TeacherDashboard() {
     }
   };
 
-  // 👇 FUNÇÃO COMPLETA: GERA RELATÓRIO DO ALUNO + ENGENHARIA POR QUESTÃO NO PDF 👇
   const handleGeneratePDF = async (quizId) => {
     try {
       const response = await fetch(`${API_URL}/api/reports/quizzes/${quizId}/json`);
@@ -181,7 +192,6 @@ export default function TeacherDashboard() {
               </thead>
               <tbody class="divide-y divide-gray-100">
                 ${data.questoes && data.questoes.map(q => {
-                  // Define cor do indicador baseado no aproveitamento
                   const valorPorcentagem = parseFloat(q.acertos);
                   const corBadge = q.acertos.includes('N/A') ? 'bg-gray-100 text-gray-600' : 
                                    valorPorcentagem < 50.0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
@@ -234,7 +244,8 @@ export default function TeacherDashboard() {
     try {
       const response = await fetch(`${API_URL}/api/quizzes/${quizId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Erro ao apagar.');
-      setQuizzes(quizzes.filter(quiz => quiz.id !== quizId));
+      // 🛡️ Atualização funcional para garantir segurança
+      setQuizzes(prev => prev.filter(quiz => quiz.id !== quizId));
     } catch (err) {
       console.error(err); 
       alert("Erro ao tentar excluir a prova.");
@@ -248,7 +259,8 @@ export default function TeacherDashboard() {
       const response = await fetch(`${API_URL}/api/quizzes/${quizId}/liberar`, { method: 'PATCH' });
       if (!response.ok) throw new Error('Erro ao liberar.');
       alert("Resultados liberados com sucesso!");
-      setQuizzes(quizzes.map(q => q.id === quizId ? { ...q, isReleased: true } : q));
+      // 🛡️ Atualização funcional
+      setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, isReleased: true } : q));
     } catch (err) {
       console.error(err);
       alert("Erro ao tentar liberar os resultados.");
@@ -276,7 +288,8 @@ export default function TeacherDashboard() {
       });
       if (!res.ok) throw new Error("Falha no servidor.");
       alert("Avaliação concluída! A nota final já está com o aluno.");
-      setPendentes(pendentes.filter(p => p.submissaoId !== submissaoId));
+      // 🛡️ Atualização funcional
+      setPendentes(prev => prev.filter(p => p.submissaoId !== submissaoId));
     } catch (err) {
       console.error(err); 
       alert("Erro de conexão ao salvar a nota.");
@@ -284,21 +297,28 @@ export default function TeacherDashboard() {
   };
 
   const toggleNotas = async (quizId) => {
-    if (notasExpandidas[quizId]) {
-      const novoEstado = { ...notasExpandidas };
-      delete novoEstado[quizId];
-      setNotasExpandidas(novoEstado);
-      return;
-    }
-    try {
-      const response = await fetch(`${API_URL}/api/quizzes/${quizId}/notas`);
-      if (response.ok) {
-        const notas = await response.json();
-        setNotasExpandidas({ ...notasExpandidas, [quizId]: notas });
+    setNotasExpandidas(prev => {
+      // Se já estava aberto, fecha
+      if (prev[quizId]) {
+        const novoEstado = { ...prev };
+        delete novoEstado[quizId];
+        return novoEstado;
       }
-    } catch (err) {
-      console.error(err);
-      alert("Não foi possível carregar as notas no momento.");
+      return prev; // Mantém igual enquanto busca
+    });
+
+    // Se não estava aberto, busca e abre
+    if (!notasExpandidas[quizId]) {
+      try {
+        const response = await fetch(`${API_URL}/api/quizzes/${quizId}/notas`);
+        if (response.ok) {
+          const notas = await response.json();
+          setNotasExpandidas(prev => ({ ...prev, [quizId]: notas }));
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Não foi possível carregar as notas no momento.");
+      }
     }
   };
 

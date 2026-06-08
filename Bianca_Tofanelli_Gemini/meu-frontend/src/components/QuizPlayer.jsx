@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import API_URL from '../apiConfig'; // 👈 Importamos o endereço da nuvem!
 
 export default function QuizPlayer({ quizId, onFinish }) {
   const [quiz, setQuiz] = useState(null);
@@ -10,7 +11,8 @@ export default function QuizPlayer({ quizId, onFinish }) {
     try {
       const studentId = localStorage.getItem('userId');
 
-      const response = await fetch(`/api/quizzes/${quizId}/submeter`, {
+      // 👇 CORREÇÃO 1: Adicionamos o API_URL na hora de submeter a prova 👇
+      const response = await fetch(`${API_URL}/api/quizzes/${quizId}/submeter`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -36,7 +38,8 @@ export default function QuizPlayer({ quizId, onFinish }) {
   useEffect(() => {
     const carregarProva = async () => {
       try {
-        const response = await fetch(`/api/quizzes/${quizId}`);
+        // 👇 CORREÇÃO 2: Adicionamos o API_URL na hora de carregar as questões 👇
+        const response = await fetch(`${API_URL}/api/quizzes/${quizId}`);
         if (response.ok) {
           const data = await response.json();
           setQuiz(data);
@@ -90,7 +93,7 @@ export default function QuizPlayer({ quizId, onFinish }) {
     setRespostas({ ...respostas, [questionId]: valor });
   };
 
-  // 👇 NOVA FUNÇÃO: Apaga a resposta do aluno e deixa a questão em branco 👇
+  // 👇 FUNÇÃO MANTIDA: Apaga a resposta do aluno e deixa a questão em branco 👇
   const handleLimparResposta = (questionId) => {
     const novasRespostas = { ...respostas };
     delete novasRespostas[questionId]; // Remove a marcação da memória
@@ -192,7 +195,7 @@ export default function QuizPlayer({ quizId, onFinish }) {
                 />
               )}
 
-              {/* 👇 BOTÃO DE LIMPAR MARCAÇÃO (Só aparece se tiver resposta) 👇 */}
+              {/* 👇 BOTÃO DE LIMPAR MARCAÇÃO 👇 */}
               {temResposta && (
                 <div className="mt-4 pt-3 border-t border-gray-200 text-right">
                   <button

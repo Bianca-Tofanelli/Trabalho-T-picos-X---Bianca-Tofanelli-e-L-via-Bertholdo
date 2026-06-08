@@ -11,7 +11,13 @@ export default function QuizResult({ quizId, onBack }) {
   useEffect(() => {
     const buscarResultado = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/quizzes/${quizId}/resultado/${studentId}`);
+        // 👇 CORREÇÃO: Adicionamos o cabeçalho de Autorização para o backend aceitar o pedido 👇
+        const response = await fetch(`${API_URL}/api/quizzes/${quizId}/resultado/${studentId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
         if (!response.ok) throw new Error('Não foi possível carregar o resultado.');
         setResultado(await response.json());
       } catch (err) {
@@ -20,7 +26,10 @@ export default function QuizResult({ quizId, onBack }) {
         setLoading(false);
       }
     };
-    buscarResultado();
+    
+    if (quizId && studentId) {
+      buscarResultado();
+    }
   }, [quizId, studentId]);
 
   if (loading) return <div className="p-10 text-center font-bold text-blue-600">Buscando gabaritos...</div>;
@@ -61,7 +70,6 @@ export default function QuizResult({ quizId, onBack }) {
           const emBranco = !respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || respostaAluno.valor === "";
           const acertou = !emBranco && respostaAluno?.isCorrect;
           
-          // 👇 Puxa o peso da questão para mostrar pro aluno 👇
           const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(1);
 
           return (
@@ -89,7 +97,6 @@ export default function QuizResult({ quizId, onBack }) {
                 {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">
-                      {/* Texto atualizado para não assustar o aluno com palavras técnicas */}
                       {q.type === 'ESSAY' ? 'O que o professor esperava como resposta:' : 'Resposta Correta:'}
                     </p>
                     <p className="font-medium text-green-800">

@@ -1,30 +1,40 @@
 // components/QuestionForm.jsx
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
+import API_URL from '../apiConfig'; // 👈 Importamos a variável da nuvem
 
 export default function QuestionForm({ question, onClose, onSave }) {
-  const [type, setType] = useState('MULTIPLE_CHOICE');
-  const [content, setContent] = useState('');
+  // 👇 1. O estado agora já nasce com os dados da questão (se ela existir)
+  const [type, setType] = useState(question ? question.type : 'MULTIPLE_CHOICE');
+  const [content, setContent] = useState(question ? question.content : '');
   
-  // Estados dinâmicos dos detalhes
-  const [options, setOptions] = useState(['', '', '', '']);
-  const [correctOptionIndex, setCorrectOptionIndex] = useState(0);
-  const [correctAnswerTF, setCorrectAnswerTF] = useState(true);
-  const [keywords, setKeywords] = useState('');
-
-  useEffect(() => {
-    if (question) {
-      setType(question.type);
-      setContent(question.content);
-      if (question.type === 'MULTIPLE_CHOICE') {
-        setOptions(question.details.options);
-        setCorrectOptionIndex(question.details.correctOptionIndex);
-      } else if (question.type === 'TRUE_FALSE') {
-        setCorrectAnswerTF(question.details.correctAnswer);
-      } else if (question.type === 'ESSAY') {
-        setKeywords(question.details.keywords?.join(', ') || '');
-      }
+  // Estados dinâmicos dos detalhes inicializados diretamente
+  const [options, setOptions] = useState(() => {
+    if (question && question.type === 'MULTIPLE_CHOICE' && question.details) {
+      return question.details.options || ['', '', '', ''];
     }
-  }, [question]);
+    return ['', '', '', ''];
+  });
+  
+  const [correctOptionIndex, setCorrectOptionIndex] = useState(() => {
+    if (question && question.type === 'MULTIPLE_CHOICE' && question.details) {
+      return question.details.correctOptionIndex || 0;
+    }
+    return 0;
+  });
+
+  const [correctAnswerTF, setCorrectAnswerTF] = useState(() => {
+    if (question && question.type === 'TRUE_FALSE' && question.details) {
+      return question.details.correctAnswer;
+    }
+    return true;
+  });
+
+  const [keywords, setKeywords] = useState(() => {
+    if (question && question.type === 'ESSAY' && question.details) {
+      return question.details.keywords?.join(', ') || '';
+    }
+    return '';
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +52,8 @@ export default function QuestionForm({ question, onClose, onSave }) {
     const url = question ? `/api/questions/${question.id}` : '/api/questions';
     const method = question ? 'PUT' : 'POST';
 
-    await fetch(url, {
+    // 👇 2. Injetamos o API_URL aqui para ele saber onde salvar na nuvem
+    await fetch(`${API_URL}${url}`, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -57,7 +68,7 @@ export default function QuestionForm({ question, onClose, onSave }) {
       <form onSubmit={handleSubmit} className="bg-white rounded-xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <h2 className="text-xl font-bold mb-4">{question ? 'Editar Questão' : 'Nova Questão'}</h2>
         
-        {/* Enunciado (Texto Rico seria implementado aqui via biblioteca como Quill/TipTap) */}
+        {/* Enunciado */}
         <div className="mb-4">
           <label className="block text-sm font-semibold mb-1">Enunciado (Texto Rico)</label>
           <textarea 

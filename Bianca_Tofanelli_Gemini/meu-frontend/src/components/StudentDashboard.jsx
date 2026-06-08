@@ -9,9 +9,10 @@ export default function StudentDashboard({ onStartQuiz }) {
   const userId = localStorage.getItem('userId');
 
   useEffect(() => {
+    let isMounted = true; // 🛡️ Proteção contra vazamento de memória
+
     const buscarProvas = async () => {
       try {
-        // 👇 AQUI ESTÁ A CORREÇÃO: Variável global inserida antes da rota 👇
         const response = await fetch(`${API_URL}/api/quizzes/dashboard/aluno/${userId}`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
@@ -19,15 +20,29 @@ export default function StudentDashboard({ onStartQuiz }) {
         if (!response.ok) throw new Error('Falha ao carregar as informações do painel.');
 
         const data = await response.json();
-        setDashboard(data); // Preenche as listas 'available', 'completed' e 'missed' de uma vez!
+        
+        // Só atualiza a tela se o aluno ainda estiver com o painel aberto
+        if (isMounted) {
+          setDashboard({
+            // Previne erros caso a API não retorne uma das listas
+            available: data.available || [],
+            completed: data.completed || [],
+            missed: data.missed || []
+          });
+        }
       } catch (err) {
-        setError(err.message);
+        if (isMounted) setError(err.message);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     if (userId) buscarProvas();
+
+    // 👇 Função de limpeza (cleanup) que o linter adora
+    return () => {
+      isMounted = false; 
+    };
   }, [userId]);
 
   return (

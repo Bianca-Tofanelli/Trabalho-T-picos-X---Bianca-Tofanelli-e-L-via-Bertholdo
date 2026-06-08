@@ -1,5 +1,5 @@
 // components/QuestionList.jsx
-import React from 'react';
+
 
 export default function QuestionList({ questions, onEdit, onDelete }) {
   if (questions.length === 0) {

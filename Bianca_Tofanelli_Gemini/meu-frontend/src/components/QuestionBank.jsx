@@ -1,5 +1,6 @@
 // components/QuestionBank.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import API_URL from '../apiConfig'; 
 import QuestionList from './QuestionList';
 import QuestionForm from './QuestionForm';
 
@@ -8,15 +9,41 @@ export default function QuestionBank() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
 
+  // 👇 1. Busca INICIAL (O Linter adora quando a função fica presa dentro do useEffect)
   useEffect(() => {
-    fetchQuestions();
-  }, []);
+    let isMounted = true; // Previne atualização de estado em componente desmontado
 
-  const fetchQuestions = async () => {
-    // Em produção, adicione o header Authorization: Bearer <token>
-    const res = await fetch('/api/questions'); 
-    const data = await res.json();
-    setQuestions(data);
+    const loadInitialQuestions = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/questions`); 
+        if (res.ok) {
+          const data = await res.json();
+          // Só atualiza o estado se a tela ainda estiver aberta
+          if (isMounted) setQuestions(data); 
+        }
+      } catch (error) {
+        console.error("Erro ao carregar questões iniciais:", error);
+      }
+    };
+
+    loadInitialQuestions();
+
+    return () => {
+      isMounted = false; // Função de limpeza (cleanup)
+    };
+  }, []); // Array vazio garante que rode apenas 1x
+
+  // 👇 2. Busca MANUAL (Usada quando salvamos ou deletamos uma questão)
+  const refreshQuestions = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/questions`); 
+      if (res.ok) {
+        const data = await res.json();
+        setQuestions(data);
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar questões:", error);
+    }
   };
 
   const handleEdit = (question) => {
@@ -26,8 +53,8 @@ export default function QuestionBank() {
 
   const handleDelete = async (id) => {
     if (confirm('Deseja realmente excluir esta questão?')) {
-      await fetch(`/api/questions/${id}`, { method: 'DELETE' });
-      fetchQuestions();
+      await fetch(`${API_URL}/api/questions/${id}`, { method: 'DELETE' });
+      refreshQuestions(); // Chama a busca manual
     }
   };
 
@@ -58,7 +85,7 @@ export default function QuestionBank() {
         <QuestionForm 
           question={editingQuestion} 
           onClose={handleCloseModal} 
-          onSave={fetchQuestions} 
+          onSave={refreshQuestions} // Chama a busca manual ao salvar
         />
       )}
     </div>

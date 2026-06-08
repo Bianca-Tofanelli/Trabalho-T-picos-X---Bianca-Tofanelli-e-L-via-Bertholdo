@@ -37,7 +37,6 @@ export default function QuizResult({ quizId, onBack }) {
   const { prova, entrega } = resultado;
   const isPendente = entrega.status === 'PENDING_REVIEW';
   
-  // Tratamento de vírgula também para a nota geral!
   const notaFinalSegura = entrega.nota !== null ? parseFloat(String(entrega.nota).replace(',', '.')) : 0;
 
   return (
@@ -67,23 +66,23 @@ export default function QuizResult({ quizId, onBack }) {
 
       <div className="space-y-6">
         {prova.questions.map((q, index) => {
-          const respostaAluno = entrega.respostas[q.id];
+          const respostaAluno = entrega.respostas[q.id] || {};
           const acertou = respostaAluno?.isCorrect;
           const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(1);
           
           const isDissertativa = q.type === 'ESSAY';
           const feedbackProfessor = respostaAluno?.feedback;
           
-          // 👇 NOVA LÓGICA BLINDADA CONTRA VÍRGULA 👇
-          const rawScore = respostaAluno?.score;
+          // 👇 RADAR DE NOTAS: Procura em todos os possíveis nomes que o backend pode ter usado 👇
+          let rawScore = respostaAluno?.score ?? respostaAluno?.nota ?? respostaAluno?.grade ?? respostaAluno?.pontuacao;
+          
           const valorSeguro = rawScore !== undefined && rawScore !== null ? String(rawScore).replace(',', '.') : null;
           
           const foiCorrigida = !isPendente || valorSeguro !== null;
           let notaProfessor = valorSeguro !== null ? parseFloat(valorSeguro) : 0;
-          if (isNaN(notaProfessor)) notaProfessor = 0; // Proteção extra contra NaN
+          if (isNaN(notaProfessor)) notaProfessor = 0; 
 
-          // Se a questão recebeu alguma nota do professor (ex: 0.5), NUNCA considere que foi entregue "em branco"
-          const emBranco = (!respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || String(respostaAluno.valor).trim() === "") && notaProfessor === 0;
+          const emBranco = (respostaAluno.valor === undefined || respostaAluno.valor === null || String(respostaAluno.valor).trim() === "") && notaProfessor === 0;
 
           return (
             <div key={q.id} className={`p-5 rounded-xl border-2 ${

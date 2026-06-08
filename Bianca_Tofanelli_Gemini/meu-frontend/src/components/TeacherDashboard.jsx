@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import API_URL from '../apiConfig';
+// 👇 O SEGREDO: Importando a ferramenta de correção para dentro do Dashboard! 👇
+import TeacherGradingTool from './TeacherGradingTool'; 
 
 export default function TeacherDashboard() {
   const [quizzes, setQuizzes] = useState([]);
@@ -10,6 +12,10 @@ export default function TeacherDashboard() {
   const [notasExpandidas, setNotasExpandidas] = useState({});
   const [agora, setAgora] = useState(new Date());
 
+  // 👇 NOVA LÓGICA: Variáveis para controlar a navegação e atualização automática
+  const [refreshKey, setRefreshKey] = useState(0); 
+  const [gradingSubmissionId, setGradingSubmissionId] = useState(null);
+
   const userId = localStorage.getItem('userId');
 
   useEffect(() => {
@@ -17,8 +23,9 @@ export default function TeacherDashboard() {
     return () => clearInterval(intervalo);
   }, []);
 
+  // O useEffect agora escuta o refreshKey. Se ele mudar, o painel recarrega os dados!
   useEffect(() => {
-    let isMounted = true; // 🛡️ Proteção contra Memory Leak
+    let isMounted = true; 
 
     const carregarPainel = async () => {
       try {
@@ -42,10 +49,8 @@ export default function TeacherDashboard() {
 
     if (userId) carregarPainel();
 
-    return () => {
-      isMounted = false; // Cleanup para o linter
-    };
-  }, [userId]);
+    return () => { isMounted = false; };
+  }, [userId, refreshKey]); 
 
   const formatarTempo = (dataAlvo) => {
     const diff = new Date(dataAlvo) - agora;
@@ -96,6 +101,7 @@ export default function TeacherDashboard() {
   };
 
   const handleGeneratePDF = async (quizId) => {
+    // ... Todo o código do PDF continua exatamente igual ...
     try {
       const response = await fetch(`${API_URL}/api/reports/quizzes/${quizId}/json`);
       if (!response.ok) throw new Error('Falha ao carregar dados para o PDF');
@@ -119,7 +125,6 @@ export default function TeacherDashboard() {
           </style>
         </head>
         <body class="bg-white text-gray-900 font-sans p-6">
-          
           <div class="border-b-4 border-blue-600 pb-6 mb-8 flex justify-between items-end">
             <div>
               <h1 class="text-4xl font-black text-gray-800 tracking-tight">Relatório de Rendimento</h1>
@@ -130,7 +135,6 @@ export default function TeacherDashboard() {
               <p>Duração da Prova: ${data.quiz.duracao} minutos</p>
             </div>
           </div>
-
           <div class="grid grid-cols-3 gap-6 mb-10">
             <div class="bg-gray-50 border border-gray-200 p-5 rounded-xl text-center">
               <p class="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">Matriculados</p>
@@ -145,7 +149,6 @@ export default function TeacherDashboard() {
               <p class="text-3xl font-black text-red-600">${data.metricas.totalFaltas}</p>
             </div>
           </div>
-
           <div class="mb-12">
             <h3 class="text-xl font-bold text-gray-800 border-b-2 border-gray-100 pb-2 mb-4">Notas Finais da Turma</h3>
             <table class="w-full text-left border-collapse">
@@ -178,7 +181,6 @@ export default function TeacherDashboard() {
               </tbody>
             </table>
           </div>
-
           <div class="page-break-before pt-4">
             <h3 class="text-xl font-bold text-gray-800 border-b-2 border-gray-100 pb-2 mb-4">Engenharia da Avaliação (Análise de Itens)</h3>
             <table class="w-full text-left border-collapse">
@@ -195,7 +197,6 @@ export default function TeacherDashboard() {
                   const valorPorcentagem = parseFloat(q.acertos);
                   const corBadge = q.acertos.includes('N/A') ? 'bg-gray-100 text-gray-600' : 
                                    valorPorcentagem < 50.0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
-
                   return `
                     <tr class="page-break hover:bg-gray-50">
                       <td class="p-4">
@@ -217,21 +218,15 @@ export default function TeacherDashboard() {
               </tbody>
             </table>
           </div>
-          
           <div class="text-center text-gray-400 text-xs mt-12 border-t border-gray-100 pt-4">
             <p>Documento gerado automaticamente pelo Sistema de Avaliações.</p>
           </div>
         </body>
         </html>
       `;
-
       printWindow.document.write(htmlContent);
       printWindow.document.close();
-
-      setTimeout(() => {
-        printWindow.print();
-      }, 700);
-
+      setTimeout(() => { printWindow.print(); }, 700);
     } catch (err) {
       console.error(err);
       alert('Erro ao tentar gerar o documento PDF analítico.');
@@ -244,8 +239,14 @@ export default function TeacherDashboard() {
     try {
       const response = await fetch(`${API_URL}/api/quizzes/${quizId}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Erro ao apagar.');
-      // 🛡️ Atualização funcional para garantir segurança
+      
+      // Remove visualmente para ser rápido
       setQuizzes(prev => prev.filter(quiz => quiz.id !== quizId));
+      
+      // 🛡️ A MÁGICA: Força o useEffect a rodar novamente, limpando as correções pendentes da tela!
+      setRefreshKey(prev => prev + 1);
+      
+      alert("Prova e histórico apagados com sucesso!");
     } catch (err) {
       console.error(err); 
       alert("Erro ao tentar excluir a prova.");
@@ -259,7 +260,6 @@ export default function TeacherDashboard() {
       const response = await fetch(`${API_URL}/api/quizzes/${quizId}/liberar`, { method: 'PATCH' });
       if (!response.ok) throw new Error('Erro ao liberar.');
       alert("Resultados liberados com sucesso!");
-      // 🛡️ Atualização funcional
       setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, isReleased: true } : q));
     } catch (err) {
       console.error(err);
@@ -267,47 +267,16 @@ export default function TeacherDashboard() {
     }
   };
 
-  const handleAvaliar = async (submissaoId, acertosAutomaticos, dissertativasDoAluno) => {
-    const totalPossivel = dissertativasDoAluno.reduce((acc, curr) => acc + curr.pesoMaximo, 0);
-    const notaStr = window.prompt(`Esta prova já garantiu ${acertosAutomaticos.toFixed(1)} pontos.\nA(s) questão(ões) dissertativa(s) do aluno vale(m) no máximo ${totalPossivel.toFixed(1)} pontos.\n\nQuantos pontos você dá para ele?`);
-    
-    if (notaStr === null) return; 
-    
-    const nota = parseFloat(notaStr.replace(',', '.')); 
-    if (isNaN(nota)) return alert("Por favor, digite um número válido!");
-
-    if (nota < 0 || nota > totalPossivel) {
-      return alert(`⚠️ Ação bloqueada: A nota atribuída deve ser entre 0 e ${totalPossivel.toFixed(1)}!`);
-    }
-
-    try {
-      const res = await fetch(`${API_URL}/api/quizzes/submissao/${submissaoId}/avaliar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notaProfessor: nota })
-      });
-      if (!res.ok) throw new Error("Falha no servidor.");
-      alert("Avaliação concluída! A nota final já está com o aluno.");
-      // 🛡️ Atualização funcional
-      setPendentes(prev => prev.filter(p => p.submissaoId !== submissaoId));
-    } catch (err) {
-      console.error(err); 
-      alert("Erro de conexão ao salvar a nota.");
-    }
-  };
-
   const toggleNotas = async (quizId) => {
     setNotasExpandidas(prev => {
-      // Se já estava aberto, fecha
       if (prev[quizId]) {
         const novoEstado = { ...prev };
         delete novoEstado[quizId];
         return novoEstado;
       }
-      return prev; // Mantém igual enquanto busca
+      return prev; 
     });
 
-    // Se não estava aberto, busca e abre
     if (!notasExpandidas[quizId]) {
       try {
         const response = await fetch(`${API_URL}/api/quizzes/${quizId}/notas`);
@@ -321,6 +290,19 @@ export default function TeacherDashboard() {
       }
     }
   };
+
+  // 👇 RENDERIZAÇÃO CONDICIONAL: Se o professor clicou em avaliar, mostra o Ferramenta de Correção em vez do Dashboard!
+  if (gradingSubmissionId) {
+    return (
+      <TeacherGradingTool 
+        submissionId={gradingSubmissionId} 
+        onBack={() => {
+          setGradingSubmissionId(null); // Volta para o Dashboard
+          setRefreshKey(prev => prev + 1); // Recarrega as pendências (a prova que ele acabou de corrigir vai sumir)
+        }} 
+      />
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-10">
@@ -356,25 +338,18 @@ export default function TeacherDashboard() {
               </div>
 
               {pendencia.dissertativas.map((diss, index) => (
-                <div key={index} className="mb-6 bg-white p-4 rounded-xl border border-gray-100">
+                <div key={index} className="mb-4 bg-white p-4 rounded-xl border border-gray-100 opacity-75">
                   <p className="font-bold text-gray-800 mb-2">Pergunta <span className="text-gray-400 font-normal text-sm">(Vale {diss.pesoMaximo.toFixed(1)} pts)</span>:</p>
-                  <p className="text-gray-700 mb-4 whitespace-pre-wrap">{diss.enunciado}</p>
-                  
-                  <div className="bg-blue-50 p-3 rounded-lg mb-4 text-sm border border-blue-100">
-                    <span className="font-bold text-blue-800">Sua Rubrica de Correção: </span>
-                    <span className="text-blue-700">{diss.rubrica || "Sem rubrica cadastrada."}</span>
-                  </div>
-
-                  <p className="font-bold text-gray-800 mb-2">Resposta do Aluno:</p>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-200">{diss.respostaDoAluno}</p>
+                  <p className="text-gray-700 line-clamp-2">{diss.enunciado}</p>
                 </div>
               ))}
 
+              {/* 👇 O NOVO BOTÃO: Em vez de pedir a nota aqui, ele abre o TeacherGradingTool! 👇 */}
               <button 
-                onClick={() => handleAvaliar(pendencia.submissaoId, pendencia.acertosAutomaticos, pendencia.dissertativas)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm"
+                onClick={() => setGradingSubmissionId(pendencia.submissaoId)}
+                className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
               >
-                Atribuir Nota da Dissertativa e Finalizar
+                📝 Abrir Ferramenta de Correção Detalhada
               </button>
             </div>
           ))}

@@ -11,7 +11,6 @@ export default function QuizResult({ quizId, onBack }) {
   useEffect(() => {
     const buscarResultado = async () => {
       try {
-        // 👇 CORREÇÃO: Adicionamos o cabeçalho de Autorização para o backend aceitar o pedido 👇
         const response = await fetch(`${API_URL}/api/quizzes/${quizId}/resultado/${studentId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -94,16 +93,34 @@ export default function QuizResult({ quizId, onBack }) {
                     respostaAluno?.valor)}
                 </p>
 
+                {/* BLOCO DA RESPOSTA CORRETA */}
                 {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">
-                      {q.type === 'ESSAY' ? 'O que o professor esperava como resposta:' : 'Resposta Correta:'}
+                      {q.type === 'ESSAY' ? 'Critérios de Avaliação do Professor:' : 'Resposta Correta:'}
                     </p>
-                    <p className="font-medium text-green-800">
+                    <p className="font-medium text-green-800 whitespace-pre-wrap">
                       {q.type === 'MULTIPLE_CHOICE' ? q.details.options[q.details.correctOptionIndex] : 
                        q.type === 'TRUE_FALSE' ? (q.details.correctAnswer ? 'Verdadeiro' : 'Falso') : 
                        q.details.rubric}
                     </p>
+                  </div>
+                )}
+
+                {/* 👇 NOVA ÁREA: Justificativa do Professor para Questões Objetivas 👇 */}
+                {q.type !== 'ESSAY' && q.details.rubric && q.details.rubric.trim() !== '' && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                      <p className="text-xs text-blue-700 font-bold uppercase mb-1 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Justificativa / Comentário do Professor:
+                      </p>
+                      <p className="text-sm text-blue-900 font-medium whitespace-pre-wrap">
+                        {q.details.rubric}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>

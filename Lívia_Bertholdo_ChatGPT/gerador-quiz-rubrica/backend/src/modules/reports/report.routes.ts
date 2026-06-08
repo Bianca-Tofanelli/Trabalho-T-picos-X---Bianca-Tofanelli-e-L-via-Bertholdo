@@ -36,6 +36,13 @@ reportRoutes.get(
   )
 );
 
+reportRoutes.get(
+  "/quiz/:quizId/csv",
+  controller.exportCsv.bind(
+    controller
+  )
+);
+
 export {
   reportRoutes,
 };

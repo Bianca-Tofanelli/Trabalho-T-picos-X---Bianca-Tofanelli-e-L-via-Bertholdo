@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import API_URL from './apiConfig'; // 👈 Importação da nossa variável da nuvem!
 import Login from './components/Login';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
@@ -29,7 +30,9 @@ function App() {
 
     try {
       const userId = localStorage.getItem('userId');
-      const response = await fetch(`/api/auth/usuario/${userId}`, { 
+      
+      // 👇 CORREÇÃO: API_URL injetado na rota de deletar a conta 👇
+      const response = await fetch(`${API_URL}/api/auth/usuario/${userId}`, { 
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -102,7 +105,7 @@ function App() {
             </h1>
             <p className="text-gray-500 text-lg">Use o menu superior para gerenciar suas avaliações.</p>
             
-            {/* 👇 NOVA ÁREA DE CONFIGURAÇÕES DA CONTA 👇 */}
+            {/* 👇 ÁREA DE CONFIGURAÇÕES DA CONTA 👇 */}
             <div className="pt-10 mt-10 border-t border-gray-100 max-w-sm mx-auto">
               <p className="text-sm text-gray-400 mb-4 uppercase font-bold tracking-wider">Configurações da Conta</p>
               <button 

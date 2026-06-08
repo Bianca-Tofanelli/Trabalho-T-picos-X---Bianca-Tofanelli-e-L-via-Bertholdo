@@ -12,7 +12,6 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
 
     const loadSubmission = async () => {
       try {
-        // 👇 AJUSTADO: Crase adicionada e rota atualizada 👇
         const res = await fetch(`${API_URL}/api/quizzes/submissions/${submissionId}/details`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
@@ -46,7 +45,6 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
   const handleSaveGrades = async () => {
     setIsSaving(true);
     try {
-      // 👇 AJUSTADO: Rota de salvar agora inclui /quizzes/ 👇
       const res = await fetch(`${API_URL}/api/quizzes/submissions/${submissionId}/grade`, {
         method: 'PUT',
         headers: { 
@@ -58,7 +56,7 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
       
       if (!res.ok) throw new Error('Erro ao salvar as notas.');
       
-      alert('Correção finalizada!');
+      alert('Correção finalizada com sucesso!');
       onBack();
       
     } catch (err) {
@@ -78,7 +76,7 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
       <div className="flex justify-between items-center border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold">Correção de Prova</h1>
-          <p className="text-gray-600">Aluno: {data.aluno?.name || 'Desconhecido'} | Status: {data.score !== null ? 'Corrigido' : 'Pendente'}</p>
+          <p className="text-gray-600">Aluno: {data.aluno?.name || 'Desconhecido'} | Status: {data.status === 'GRADED' ? 'Corrigido' : 'Pendente'}</p>
         </div>
         <button onClick={onBack} className="text-blue-600 hover:underline font-medium">Voltar à lista</button>
       </div>
@@ -88,9 +86,14 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
       ) : (
         <div className="space-y-8">
           {essayQuestions.map((q, index) => {
-            const studentAnswer = data.answers[q.id]?.providedAnswer || "Não respondeu";
+            // 👇 CORREÇÃO: Puxa o 'valor' correto enviado pelo aluno 👇
+            const studentAnswer = data.answers[q.id]?.valor || "Não respondeu";
             const details = typeof q.details === 'string' ? JSON.parse(q.details) : (q.details || {});
             const rubricText = details.rubric || null;
+
+            // 👇 CORREÇÃO: Captura valores existentes caso a prova já tenha notas salvas 👇
+            const savedScore = data.answers[q.id]?.score ?? '';
+            const savedFeedback = data.answers[q.id]?.feedback ?? '';
 
             return (
               <div key={q.id} className="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -124,15 +127,16 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nota da Questão:</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nota da Questão (Máx: {details.peso || 1} pts):</label>
                       <input 
                         type="text" 
-                        className="w-32 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="Ex: 2.5 ou 2,5"
+                        defaultValue={savedScore} // 👈 Mantém a nota visível na tela
+                        className="w-32 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none font-bold"
+                        placeholder="Ex: 2.5"
                         onChange={(e) => {
                           let valorSeguro = e.target.value.replace(',', '.');
                           let notaDecimal = parseFloat(valorSeguro);
-                          handleGradeChange(q.id, 'score', isNaN(notaDecimal) ? 0 : notaDecimal);
+                          handleGradeChange(q.id, 'score', isNaN(notaDecimal) ? '' : notaDecimal);
                         }}
                       />
                     </div>
@@ -141,7 +145,8 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Feedback Privado (Opcional):</label>
                       <textarea 
                         rows="3" 
-                        className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        defaultValue={savedFeedback} // 👈 Mantém o comentário visível na tela
+                        className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                         placeholder="Escreva um comentário sobre o desempenho nesta questão..."
                         onChange={(e) => handleGradeChange(q.id, 'feedback', e.target.value)}
                       />

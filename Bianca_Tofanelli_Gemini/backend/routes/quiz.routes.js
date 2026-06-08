@@ -324,16 +324,21 @@ router.put('/submissions/:id/grade', async (req, res) => {
     let respostasMapeadas = {};
     try { respostasMapeadas = JSON.parse(submission.answers); } catch (e) { }
 
-    // 1. Atualiza a nota de cada questão individualmente no JSON
+    // 👇 CORREÇÃO: Atualiza apenas os campos explicitamente enviados, sem zerar os outros 👇
     for (const [questionId, update] of Object.entries(grades)) {
       if (!respostasMapeadas[questionId]) respostasMapeadas[questionId] = {};
 
-      let notaSegura = parseFloat(String(update.score).replace(',', '.'));
-      if (isNaN(notaSegura)) notaSegura = 0;
+      // Atualiza a nota apenas se ela foi preenchida na tela
+      if (update.score !== undefined && update.score !== null && String(update.score).trim() !== '') {
+        let notaSegura = parseFloat(String(update.score).replace(',', '.'));
+        respostasMapeadas[questionId].score = isNaN(notaSegura) ? 0 : notaSegura;
+        respostasMapeadas[questionId].isCorrect = notaSegura > 0;
+      }
 
-      respostasMapeadas[questionId].score = notaSegura;
-      respostasMapeadas[questionId].feedback = update.feedback || '';
-      respostasMapeadas[questionId].isCorrect = notaSegura > 0;
+      // Atualiza o comentário apenas se ele foi preenchido na tela
+      if (update.feedback !== undefined && update.feedback !== null) {
+        respostasMapeadas[questionId].feedback = update.feedback;
+      }
     }
 
     // 2. Recalcula a Nota Final juntando as Objetivas + Dissertativas Corrigidas
@@ -376,7 +381,6 @@ router.put('/submissions/:id/grade', async (req, res) => {
     res.status(500).json({ error: 'Erro interno ao salvar a correção.' });
   }
 });
-
 
 // 9. PROFESSOR LER SUAS PROVAS
 router.get('/professor/:professorId', async (req, res) => {

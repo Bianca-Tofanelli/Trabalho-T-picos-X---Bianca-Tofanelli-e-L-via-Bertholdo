@@ -33,6 +33,31 @@ export class AttemptService {
       );
     }
 
+    const now =
+      new Date();
+
+    if (
+      quiz.availableFrom &&
+      now <
+        quiz.availableFrom
+    ) {
+      throw new AppError(
+        "Quiz ainda não disponível",
+        400
+      );
+    }
+
+    if (
+      quiz.availableUntil &&
+      now >
+        quiz.availableUntil
+    ) {
+      throw new AppError(
+        "Prazo encerrado",
+        400
+      );
+    }
+
     const existingAttempt =
       await this.repository.findStudentAttempt(
         quizId,
@@ -69,7 +94,8 @@ export class AttemptService {
     }
 
     if (
-      attempt.studentId !== studentId
+      attempt.studentId !==
+      studentId
     ) {
       throw new AppError(
         "Acesso negado",
@@ -78,7 +104,8 @@ export class AttemptService {
     }
 
     if (
-      attempt.status === "FINISHED"
+      attempt.status ===
+      "FINISHED"
     ) {
       throw new AppError(
         "Tentativa já finalizada",
@@ -125,9 +152,10 @@ export class AttemptService {
         answer.selectedAlternative ===
         correctAlternative?.id;
 
-      const score = isCorrect
-        ? question.points
-        : 0;
+      const score =
+        isCorrect
+          ? question.points
+          : 0;
 
       await prisma.answer.update({
         where: {

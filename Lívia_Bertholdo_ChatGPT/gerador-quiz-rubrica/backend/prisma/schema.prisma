@@ -58,6 +58,10 @@ model Quiz {
 
   answerKeyReleased Boolean @default(false)
 
+  availableFrom DateTime?
+
+  availableUntil DateTime?
+
   timeLimit   Int?
   maxAttempts Int  @default(1)
 

@@ -70,15 +70,43 @@ export default function QuizResult({ quizId, onBack }) {
           const acertou = !emBranco && respostaAluno?.isCorrect;
           
           const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(1);
+          
+          // Variáveis extras para controle de questões Dissertativas
+          const isDissertativa = q.type === 'ESSAY';
+          const notaProfessor = respostaAluno?.score;
+          const feedbackProfessor = respostaAluno?.feedback;
+          const foiCorrigida = notaProfessor !== undefined && notaProfessor !== null;
 
           return (
-            <div key={q.id} className={`p-5 rounded-xl border-2 ${acertou === true ? 'border-green-300 bg-green-50' : emBranco ? 'border-gray-300 bg-gray-50' : 'border-red-300 bg-red-50'}`}>
+            <div key={q.id} className={`p-5 rounded-xl border-2 ${
+              (acertou === true || (isDissertativa && foiCorrigida && notaProfessor > 0)) 
+                ? 'border-green-300 bg-green-50' 
+                : emBranco 
+                  ? 'border-gray-300 bg-gray-50' 
+                  : (isDissertativa && !foiCorrigida) 
+                    ? 'border-yellow-300 bg-yellow-50' 
+                    : 'border-red-300 bg-red-50'
+            }`}>
               <p className="font-bold text-gray-800 mb-3 flex items-center flex-wrap gap-2">
                 Questão {index + 1} 
                 <span className="text-gray-500 font-normal text-sm">(Vale {pesoQuestao} pts)</span>
                 
-                {acertou === true && <span className="text-green-600 ml-auto">✅ Acertou</span>}
-                {acertou === false && !emBranco && <span className="text-red-600 ml-auto">❌ Errou</span>}
+                {/* Ícones para Questões Objetivas */}
+                {!isDissertativa && acertou === true && <span className="text-green-600 ml-auto">✅ Acertou</span>}
+                {!isDissertativa && acertou === false && !emBranco && <span className="text-red-600 ml-auto">❌ Errou</span>}
+                
+                {/* Selos de Nota para Questões Dissertativas */}
+                {isDissertativa && foiCorrigida && (
+                  <span className="text-blue-700 font-bold ml-auto bg-blue-100 px-3 py-1 rounded-full text-sm">
+                    Nota: {parseFloat(notaProfessor).toFixed(1)} / {pesoQuestao} pts
+                  </span>
+                )}
+                {isDissertativa && !foiCorrigida && !emBranco && (
+                  <span className="text-yellow-700 font-bold ml-auto bg-yellow-100 px-3 py-1 rounded-full text-sm">
+                    ⏳ Aguardando Correção
+                  </span>
+                )}
+
                 {emBranco && <span className="text-gray-500 font-bold ml-auto">⚪ Deixou em branco (0 pts)</span>}
               </p>
               
@@ -86,14 +114,14 @@ export default function QuizResult({ quizId, onBack }) {
 
               <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
                 <p className="text-sm text-gray-500 font-bold uppercase">Sua Resposta:</p>
-                <p className={`font-medium ${emBranco ? 'text-gray-500 italic' : (acertou === false ? 'text-red-600' : 'text-gray-800')}`}>
+                <p className={`font-medium ${emBranco ? 'text-gray-500 italic' : (!isDissertativa && acertou === false ? 'text-red-600' : 'text-gray-800')}`}>
                   {emBranco ? 'Você não respondeu esta questão.' : 
                    (q.type === 'MULTIPLE_CHOICE' ? q.details.options[respostaAluno?.valor] : 
                     q.type === 'TRUE_FALSE' ? (respostaAluno?.valor ? 'Verdadeiro' : 'Falso') : 
                     respostaAluno?.valor)}
                 </p>
 
-                {/* BLOCO DA RESPOSTA CORRETA */}
+                {/* BLOCO DA RESPOSTA CORRETA OU RUBRICA */}
                 {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">
@@ -107,7 +135,7 @@ export default function QuizResult({ quizId, onBack }) {
                   </div>
                 )}
 
-                {/* 👇 NOVA ÁREA: Justificativa do Professor para Questões Objetivas 👇 */}
+                {/* ÁREA: Justificativa do Professor para Questões Objetivas */}
                 {q.type !== 'ESSAY' && q.details.rubric && q.details.rubric.trim() !== '' && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
@@ -115,7 +143,7 @@ export default function QuizResult({ quizId, onBack }) {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        Justificativa / Comentário do Professor:
+                        Justificativa da Resposta:
                       </p>
                       <p className="text-sm text-blue-900 font-medium whitespace-pre-wrap">
                         {q.details.rubric}
@@ -123,6 +151,24 @@ export default function QuizResult({ quizId, onBack }) {
                     </div>
                   </div>
                 )}
+
+                {/* 👇 NOVA ÁREA: Feedback Privado do Professor para Dissertativas 👇 */}
+                {isDissertativa && feedbackProfessor && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">
+                      <p className="text-xs text-purple-700 font-bold uppercase mb-1 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                        Comentário do Professor sobre sua resposta:
+                      </p>
+                      <p className="text-sm text-purple-900 font-medium whitespace-pre-wrap">
+                        {feedbackProfessor}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           );

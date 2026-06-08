@@ -37,6 +37,7 @@ export default function QuizResult({ quizId, onBack }) {
   const { prova, entrega } = resultado;
   const isPendente = entrega.status === 'PENDING_REVIEW';
   
+  // 👇 AJUSTADO PARA DUAS CASAS DECIMAIS 👇
   const notaFinalSegura = entrega.nota !== null ? parseFloat(String(entrega.nota).replace(',', '.')) : 0;
 
   return (
@@ -53,8 +54,9 @@ export default function QuizResult({ quizId, onBack }) {
             {isPendente ? 'Nota Parcial' : 'Nota Final'}
           </span>
           <span className="text-3xl font-black flex items-baseline justify-center gap-1 mt-1">
-            {entrega.nota !== null ? notaFinalSegura.toFixed(1) : '0.0'} 
-            {isPendente ? ' + ?' : <span className="text-xl text-blue-600 font-bold"> / 10.0</span>}
+            {/* 👇 EXIBE DUAS CASAS DECIMAIS EXATAS (EX: 8.35) 👇 */}
+            {entrega.nota !== null ? notaFinalSegura.toFixed(2) : '0.00'} 
+            {isPendente ? ' + ?' : <span className="text-xl text-blue-600 font-bold"> / 10.00</span>}
           </span>
           {isPendente && (
             <span className="block text-xs mt-1 font-medium text-yellow-700">
@@ -68,14 +70,13 @@ export default function QuizResult({ quizId, onBack }) {
         {prova.questions.map((q, index) => {
           const respostaAluno = entrega.respostas[q.id] || {};
           const acertou = respostaAluno?.isCorrect;
-          const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(1);
+          // 👇 EXIBE O PESO DA QUESTÃO COM DUAS CASAS 👇
+          const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(2);
           
           const isDissertativa = q.type === 'ESSAY';
           const feedbackProfessor = respostaAluno?.feedback;
           
-          // 👇 RADAR DE NOTAS: Procura em todos os possíveis nomes que o backend pode ter usado 👇
-          let rawScore = respostaAluno?.score ?? respostaAluno?.nota ?? respostaAluno?.grade ?? respostaAluno?.pontuacao;
-          
+          const rawScore = respostaAluno?.score ?? respostaAluno?.nota ?? respostaAluno?.grade ?? respostaAluno?.pontuacao;
           const valorSeguro = rawScore !== undefined && rawScore !== null ? String(rawScore).replace(',', '.') : null;
           
           const foiCorrigida = !isPendente || valorSeguro !== null;
@@ -102,8 +103,9 @@ export default function QuizResult({ quizId, onBack }) {
                 {!isDissertativa && acertou === false && !emBranco && <span className="text-red-600 ml-auto">❌ Errou</span>}
                 
                 {isDissertativa && foiCorrigida && (
+                  // 👇 EXIBE A NOTA DO PROFESSOR COM DUAS CASAS 👇
                   <span className={`font-bold ml-auto px-3 py-1 rounded-full text-sm ${notaProfessor > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
-                    Nota: {notaProfessor.toFixed(1)} / {pesoQuestao} pts
+                    Nota: {notaProfessor.toFixed(2)} / {pesoQuestao} pts
                   </span>
                 )}
                 {isDissertativa && !foiCorrigida && !emBranco && (
@@ -112,7 +114,7 @@ export default function QuizResult({ quizId, onBack }) {
                   </span>
                 )}
 
-                {emBranco && <span className="text-gray-500 font-bold ml-auto">⚪ Deixou em branco (0 pts)</span>}
+                {emBranco && <span className="text-gray-500 font-bold ml-auto">⚪ Deixou em branco (0.00 pts)</span>}
               </p>
               
               <p className="text-gray-700 mb-4 whitespace-pre-wrap">{q.content}</p>

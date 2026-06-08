@@ -19,7 +19,6 @@ export default function QuizCreator() {
       id: Date.now() + Math.random(), 
       content: '',
       type: type,
-      // 👇 INCLUSÃO: Agora a 'rubric' (rúbrica) nasce vazia em todos os tipos de questão
       details: type === 'MULTIPLE_CHOICE' 
         ? { options: ['', '', '', ''], correctOptionIndex: 0, peso: 1, rubric: '' } 
         : type === 'TRUE_FALSE' 
@@ -67,8 +66,9 @@ export default function QuizCreator() {
     }
   };
 
+  // 👇 AJUSTADO PARA CASAS DECIMAIS PRECISAS (.toFixed(2)) 👇
   const somaDosPontos = questions.reduce((acc, q) => acc + Number(q.details.peso || 0), 0);
-  const isSomaDez = somaDosPontos.toFixed(1) === '10.0';
+  const isSomaDez = somaDosPontos.toFixed(2) === '10.00';
 
   const handleSaveQuiz = async () => {
     if (!quizData.title) return alert('Preencha o título da prova!');
@@ -77,8 +77,17 @@ export default function QuizCreator() {
     if (new Date(quizData.startDate) >= new Date(quizData.endDate)) {
       return alert('A data de encerramento deve ser DEPOIS da data de início.');
     }
+
+    // 👇 TRAVA DE SEGURANÇA: Rúbrica Obrigatória para Dissertativas 👇
+    const temDissertativaSemRubrica = questions.some(
+      q => q.type === 'ESSAY' && (!q.details.rubric || q.details.rubric.trim() === '')
+    );
+    if (temDissertativaSemRubrica) {
+      return alert('⚠️ AÇÃO BLOQUEADA!\n\nTodas as questões dissertativas precisam ter os Critérios de Correção (Rúbrica) preenchidos antes de salvar a prova.');
+    }
+
     if (!isSomaDez) {
-      return alert(`A soma dos pesos é ${somaDosPontos.toFixed(1)}. Ela precisa ser EXATAMENTE 10.0!`);
+      return alert(`A soma dos pesos é ${somaDosPontos.toFixed(2)}. Ela precisa ser EXATAMENTE 10.00!`);
     }
 
     setIsSaving(true);
@@ -160,8 +169,9 @@ export default function QuizCreator() {
         <div className="flex justify-between items-end border-b border-gray-200 pb-2">
           <h2 className="text-xl font-bold text-gray-800">Questões ({questions.length})</h2>
           
+          {/* 👇 AJUSTADO PARA EXIBIR DUAS CASAS DECIMAIS 👇 */}
           <div className={`px-4 py-2 rounded-lg font-bold text-sm ${isSomaDez ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200 animate-pulse'}`}>
-            Soma da Prova: {somaDosPontos.toFixed(1)} / 10.0 pts
+            Soma da Prova: {somaDosPontos.toFixed(2)} / 10.00 pts
           </div>
         </div>
         
@@ -175,7 +185,7 @@ export default function QuizCreator() {
                 <div className="flex items-center gap-2 bg-blue-50 px-3 py-1 rounded border border-blue-100">
                   <label className="text-sm font-bold text-blue-800">Valor (Pts):</label>
                   <input 
-                    type="number" step="0.1" min="0" 
+                    type="number" step="0.01" min="0" 
                     className="w-16 p-1 text-center font-bold border rounded outline-none"
                     value={q.details.peso || 1}
                     onChange={(e) => updateQuestionDetails(q.id, 'peso', parseFloat(e.target.value) || 0)}
@@ -191,7 +201,6 @@ export default function QuizCreator() {
               value={q.content} onChange={e => updateQuestion(q.id, 'content', e.target.value)}
             />
 
-            {/* Renderiza alternativas de Múltipla Escolha */}
             {q.type === 'MULTIPLE_CHOICE' && (
               <div className="space-y-3">
                 {q.details.options.map((opt, i) => (
@@ -231,7 +240,6 @@ export default function QuizCreator() {
               </div>
             )}
 
-            {/* Renderiza alternativas de Verdadeiro ou Falso */}
             {q.type === 'TRUE_FALSE' && (
               <div className="flex space-x-4">
                 <label className="flex items-center space-x-2 cursor-pointer">
@@ -245,19 +253,18 @@ export default function QuizCreator() {
               </div>
             )}
 
-            {/* 👇 NOVA ÁREA UNIFICADA: Rúbrica / Justificativa para TODAS as questões 👇 */}
             <div className="mt-5 pt-4 border-t border-gray-100">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {q.type === 'ESSAY' 
-                  ? 'O que deve ser avaliado? (Critério de Correção) *' 
+                {q.type === 'PLAY_ESSAY' || q.type === 'ESSAY'
+                  ? 'O que deve ser avaliado? (Critério de Correção) * OBRIGATÓRIO' 
                   : 'Rúbrica / Justificativa da Resposta (Opcional)'}
               </label>
               <textarea 
                 className="w-full p-2 border rounded bg-yellow-50 outline-none focus:ring-2 focus:ring-yellow-200 text-sm" 
                 rows="2" 
                 placeholder={q.type === 'ESSAY' 
-                  ? "Ex: 1 ponto para clareza, 1 ponto se citar o conceito X..." 
-                  : "Explique por que essa é a resposta correta para ajudar o aluno ou a coordenação..."} 
+                  ? "Ex: 1 ponto para clareza, 1 ponto se citar o conceito X... Não deixe em branco!" 
+                  : "Explique por que essa é a resposta correta..."} 
                 value={q.details.rubric || ''} 
                 onChange={e => updateQuestionDetails(q.id, 'rubric', e.target.value)} 
               />
@@ -282,7 +289,7 @@ export default function QuizCreator() {
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isSaving ? 'Salvando...' : isSomaDez ? 'Salvar Prova no Sistema' : 'A soma deve ser 10.0'}
+          {isSaving ? 'Salvando...' : isSomaDez ? 'Salvar Prova no Sistema' : 'A soma deve ser 10.00'}
         </button>
       </div>
     </div>

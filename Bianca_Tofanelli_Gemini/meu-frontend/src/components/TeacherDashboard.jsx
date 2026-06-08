@@ -339,7 +339,7 @@ export default function TeacherDashboard() {
 
               {pendencia.dissertativas.map((diss, index) => (
                 <div key={index} className="mb-4 bg-white p-4 rounded-xl border border-gray-100 opacity-75">
-                  <p className="font-bold text-gray-800 mb-2">Pergunta <span className="text-gray-400 font-normal text-sm">(Vale {diss.pesoMaximo.toFixed(1)} pts)</span>:</p>
+                  <p className="font-bold text-gray-800 mb-2">Pergunta <span className="text-gray-400 font-normal text-sm">(Vale {diss.pesoMaximo.toFixed(2)} pts)</span>:</p>
                   <p className="text-gray-700 line-clamp-2">{diss.enunciado}</p>
                 </div>
               ))}

@@ -184,8 +184,9 @@ export default function SecretaryDashboard() {
                       {s.status === 'GRADED' ? 'Corrigida' : 'Aguardando Revisão'}
                     </span>
                   </td>
+                  {/* 👇 CORREÇÃO AQUI: s.nota alterado para s.score 👇 */}
                   <td className="p-4 text-right font-black text-blue-600 text-base">
-                    {s.nota !== null ? parseFloat(s.nota).toFixed(1) : 'Parcial'} / 10.0
+                    {s.score !== null ? parseFloat(s.score).toFixed(1) : 'Parcial'} / 10.0
                   </td>
                 </tr>
               ))}

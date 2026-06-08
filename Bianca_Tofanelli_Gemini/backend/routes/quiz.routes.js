@@ -45,7 +45,6 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
   try {
     const idAluno = parseInt(req.params.studentId);
     
-    // Busca professores ativos
     const professoresAtivos = await prisma.user.findMany({ where: { role: 'PROFESSOR' } });
     const idsProfessoresAtivos = professoresAtivos.map(p => p.id);
 
@@ -55,27 +54,12 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
     
     const now = new Date();
 
-    // 🚨 LOGS DE AUXÍLIO NO TERMINAL 🚨
-    console.log("\n--- 🔍 INVESTIGANDO SUMIÇO DE PROVAS ---");
-    console.log(`Horário Atual do Servidor: ${now.toISOString()}`);
-    console.log(`IDs de Professores Ativos no Banco: [${idsProfessoresAtivos.join(', ')}]`);
-    console.log(`Total de provas cadastradas no banco: ${todasProvas.length}`);
-
     const available = [];
     const missed = [];
 
     for (const q of todasProvas) {
-      // 1. Checa se o aluno já fez
-      if (idsProvasFeitas.includes(q.id)) {
-        console.log(`💡 Prova "${q.title}" (ID: ${q.id}) -> Omitida da lista porque o aluno já respondeu.`);
-        continue;
-      }
-
-      // 2. Checa se a prova pertence a um professor ativo
-      if (!idsProfessoresAtivos.includes(q.professorId)) {
-        console.log(`⚠️ Prova "${q.title}" (ID: ${q.id}) -> ESCONDIDA! O professor ID ${q.professorId} que a criou não foi localizado como 'PROFESSOR' ativo.`);
-        continue;
-      }
+      if (idsProvasFeitas.includes(q.id)) continue;
+      if (!idsProfessoresAtivos.includes(q.professorId)) continue;
 
       const inicio = q.startDate ? new Date(q.startDate) : null;
       const fim = q.endDate ? new Date(q.endDate) : null;
@@ -87,9 +71,6 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
         available.push(q);
       } else if (fim && now > fim) {
         missed.push(q);
-      } else {
-        // 3. Checa se barrou no horário
-        console.log(`⏳ Prova "${q.title}" (ID: ${q.id}) -> BLOQUEADA CRONOLOGICAMENTE! Só vai aparecer quando o relógio bater ${inicio?.toISOString()}`);
       }
     }
 
@@ -116,6 +97,7 @@ router.get('/dashboard/aluno/:studentId', async (req, res) => {
     res.status(500).json({ error: 'Erro ao carregar o painel.' });
   }
 });
+
 // 3. SUBMETER E CORRIGIR A PROVA AUTOMATICAMENTE
 router.post('/:id/submeter', async (req, res) => {
   try {
@@ -134,17 +116,17 @@ router.post('/:id/submeter', async (req, res) => {
     for (const link of prova.questions) {
       const q = link.question;
       const detalhes = JSON.parse(q.details); 
-      const pesoDaQuestao = parseFloat(detalhes.peso || 1); // 👈 Pega o peso da questão
+      const pesoDaQuestao = parseFloat(detalhes.peso || 1); 
       
       const respostaDoAluno = answers[q.id];
       let isCorrect = null; 
 
       if (q.type === 'MULTIPLE_CHOICE') {
         isCorrect = (respostaDoAluno === detalhes.correctOptionIndex);
-        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
+        if (isCorrect) acertos += pesoDaQuestao; 
       } else if (q.type === 'TRUE_FALSE') {
         isCorrect = (respostaDoAluno === detalhes.correctAnswer);
-        if (isCorrect) acertos += pesoDaQuestao; // 👈 Soma o peso, não apenas 1!
+        if (isCorrect) acertos += pesoDaQuestao; 
       } else if (q.type === 'ESSAY') {
         if (respostaDoAluno && typeof respostaDoAluno === 'string' && respostaDoAluno.trim() !== "") {
           temDissertativaRespondida = true;
@@ -155,14 +137,13 @@ router.post('/:id/submeter', async (req, res) => {
     }
 
     const statusDaProva = temDissertativaRespondida ? "PENDING_REVIEW" : "GRADED";
-    const notaCalculada = acertos; 
 
     await prisma.submission.create({
       data: {
         quizId,
         studentId: parseInt(studentId),
         answers: JSON.stringify(respostasCorrigidas),
-        score: notaCalculada,
+        score: acertos,
         status: statusDaProva
       }
     });
@@ -172,6 +153,7 @@ router.post('/:id/submeter', async (req, res) => {
     res.status(500).json({ error: 'Erro ao corrigir.' });
   }
 });
+
 // 4. BUSCAR A PROVA COM O GABARITO
 router.get('/:id/resultado/:studentId', async (req, res) => {
   try {
@@ -206,10 +188,10 @@ router.get('/:id', async (req, res) => {
 
     const now = new Date();
     if (prova.startDate && now < new Date(prova.startDate)) {
-      return res.status(403).json({ error: 'Esta prova ainda não está disponível para realização.' });
+      return res.status(403).json({ error: 'Esta prova ainda não está disponível.' });
     }
     if (prova.endDate && now > new Date(prova.endDate)) {
-      return res.status(403).json({ error: 'O período de realização desta prova já se encerrou.' });
+      return res.status(403).json({ error: 'O período desta prova já se encerrou.' });
     }
 
     res.json({
@@ -271,7 +253,7 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
             idQuestao: q.id,
             enunciado: q.content,
             rubrica: detalhes.rubric,
-            pesoMaximo: parseFloat(detalhes.peso || 1), // 👈 Manda pro frontend quanto essa questão vale!
+            pesoMaximo: parseFloat(detalhes.peso || 1), 
             respostaDoAluno: respostasAluno[q.id].valor
           };
         });
@@ -292,23 +274,109 @@ router.get('/professor/:professorId/pendentes', async (req, res) => {
     res.status(500).json({ error: 'Erro ao buscar pendências.' });
   }
 });
-// 8. RECEBER A NOTA DA DISSERTATIVA E FINALIZAR A PROVA
-router.post('/submissao/:id/avaliar', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { notaProfessor } = req.body;
-    const submissao = await prisma.submission.findUnique({ where: { id: parseInt(id) } });
-    const notaFinal = (submissao.score || 0) + parseFloat(notaProfessor);
 
-    await prisma.submission.update({
-      where: { id: parseInt(id) },
-      data: { score: notaFinal, status: 'GRADED' }
+// =======================================================================
+// 👇 ROTAS DE CORREÇÃO DINÂMICAS PARA A FERRAMENTA DO PROFESSOR 👇
+// =======================================================================
+
+// 8.1 BUSCAR OS DADOS COMPLETOS DA SUBMISSÃO PARA O PROFESSOR LER
+router.get('/submissions/:id/details', async (req, res) => {
+  try {
+    const subId = parseInt(req.params.id);
+    const submissao = await prisma.submission.findUnique({
+      where: { id: subId },
+      include: {
+        student: { select: { name: true, email: true } },
+        quiz: { include: { questions: { include: { question: true } } } }
+      }
     });
-    res.json({ message: 'Nota salva!' });
+    
+    if (!submissao) return res.status(404).json({ error: 'Submissão não encontrada.' });
+
+    const questoes = submissao.quiz.questions.map(q => q.question);
+
+    res.json({
+      id: submissao.id,
+      score: submissao.score,
+      status: submissao.status,
+      answers: JSON.parse(submissao.answers),
+      aluno: submissao.student,
+      questions: questoes
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao avaliar prova.' });
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao carregar detalhes da prova.' });
   }
 });
+
+// 8.2 RECEBER TODAS AS NOTAS (DE MÚLTIPLAS QUESTÕES) E CALCULAR SOMA FINAL
+router.put('/submissions/:id/grade', async (req, res) => {
+  try {
+    const submissionId = parseInt(req.params.id);
+    const { grades } = req.body; 
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId }
+    });
+
+    if (!submission) return res.status(404).json({ error: 'Submissão não encontrada.' });
+
+    let respostasMapeadas = {};
+    try { respostasMapeadas = JSON.parse(submission.answers); } catch (e) { }
+
+    // 1. Atualiza a nota de cada questão individualmente no JSON
+    for (const [questionId, update] of Object.entries(grades)) {
+      if (!respostasMapeadas[questionId]) respostasMapeadas[questionId] = {};
+
+      let notaSegura = parseFloat(String(update.score).replace(',', '.'));
+      if (isNaN(notaSegura)) notaSegura = 0;
+
+      respostasMapeadas[questionId].score = notaSegura;
+      respostasMapeadas[questionId].feedback = update.feedback || '';
+      respostasMapeadas[questionId].isCorrect = notaSegura > 0;
+    }
+
+    // 2. Recalcula a Nota Final juntando as Objetivas + Dissertativas Corrigidas
+    const questoesDaProva = await prisma.quizQuestion.findMany({
+      where: { quizId: submission.quizId },
+      include: { question: true }
+    });
+
+    let novaNotaTotal = 0;
+
+    questoesDaProva.forEach(qq => {
+      const qId = qq.questionId;
+      const qType = qq.question.type;
+      const details = typeof qq.question.details === 'string' ? JSON.parse(qq.question.details) : (qq.question.details || {});
+      const pesoOriginal = parseFloat(details.peso || 1);
+      const respostaDoAluno = respostasMapeadas[qId];
+
+      if (respostaDoAluno) {
+        if (qType === 'ESSAY') {
+          novaNotaTotal += parseFloat(respostaDoAluno.score || 0);
+        } else {
+          if (respostaDoAluno.isCorrect) novaNotaTotal += pesoOriginal;
+        }
+      }
+    });
+
+    // 3. Salva no banco de dados e fecha o status para "GRADED"
+    const submissaoAtualizada = await prisma.submission.update({
+      where: { id: submissionId },
+      data: {
+        answers: JSON.stringify(respostasMapeadas),
+        score: novaNotaTotal,
+        status: 'GRADED' 
+      }
+    });
+
+    res.json({ message: 'Correção processada com sucesso!', submission: submissaoAtualizada });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro interno ao salvar a correção.' });
+  }
+});
+
 
 // 9. PROFESSOR LER SUAS PROVAS
 router.get('/professor/:professorId', async (req, res) => {
@@ -337,18 +405,29 @@ router.get('/professor/:professorId', async (req, res) => {
   }
 });
 
-// 10. APAGAR UMA PROVA COMPLETAMENTE
+// 10. APAGAR UMA PROVA COMPLETAMENTE E EM CASCATA
 router.delete('/:id', async (req, res) => {
   try {
     const idNumero = parseInt(req.params.id);
+    
+    // Deleta os históricos de correção pendentes e finalizados
     await prisma.submission.deleteMany({ where: { quizId: idNumero } });
+    
+    // Busca as questões para excluir permanentemente depois
     const questoes = await prisma.question.findMany({ where: { quizzes: { some: { quizId: idNumero } } } });
     const idsQuestoes = questoes.map(q => q.id);
+    
+    // Quebra a relação Muitos-para-Muitos
     await prisma.quizQuestion.deleteMany({ where: { quizId: idNumero } });
+    
+    // Apaga as questões físicas
     if (idsQuestoes.length > 0) {
       await prisma.question.deleteMany({ where: { id: { in: idsQuestoes } } });
     }
+    
+    // Apaga o Quiz
     await prisma.quiz.delete({ where: { id: idNumero } });
+    
     res.json({ message: 'Prova excluída!' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao excluir.' });

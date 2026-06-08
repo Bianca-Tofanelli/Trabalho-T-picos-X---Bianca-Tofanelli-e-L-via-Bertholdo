@@ -12,7 +12,8 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
 
     const loadSubmission = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/submissions/${submissionId}/details`, {
+        // 👇 AJUSTADO: Crase adicionada e rota atualizada 👇
+        const res = await fetch(`${API_URL}/api/quizzes/submissions/${submissionId}/details`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         
@@ -45,7 +46,8 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
   const handleSaveGrades = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/submissions/${submissionId}/grade`, {
+      // 👇 AJUSTADO: Rota de salvar agora inclui /quizzes/ 👇
+      const res = await fetch(`${API_URL}/api/quizzes/submissions/${submissionId}/grade`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -124,11 +126,10 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nota da Questão:</label>
                       <input 
-                        type="text" // Alterado para text para capturar a vírgula antes do navegador deletar
+                        type="text" 
                         className="w-32 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
                         placeholder="Ex: 2.5 ou 2,5"
                         onChange={(e) => {
-                          // 👇 BLINDAGEM CONTRA A VÍRGULA BRASILEIRA 👇
                           let valorSeguro = e.target.value.replace(',', '.');
                           let notaDecimal = parseFloat(valorSeguro);
                           handleGradeChange(q.id, 'score', isNaN(notaDecimal) ? 0 : notaDecimal);

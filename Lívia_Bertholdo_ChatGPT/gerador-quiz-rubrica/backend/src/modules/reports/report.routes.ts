@@ -29,6 +29,13 @@ reportRoutes.get(
   )
 );
 
+reportRoutes.get(
+  "/quiz/:quizId/questions",
+  controller.questionPerformance.bind(
+    controller
+  )
+);
+
 export {
   reportRoutes,
 };

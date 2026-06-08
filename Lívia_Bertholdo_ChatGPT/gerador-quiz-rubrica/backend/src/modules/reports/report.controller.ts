@@ -22,4 +22,18 @@ export class ReportController {
       .status(200)
       .json(result);
   }
+
+  async questionPerformance(
+    req: Request,
+    res: Response
+  ) {
+    const result =
+      await this.service.questionPerformance(
+        String(req.params.quizId)
+      );
+
+    return res
+      .status(200)
+      .json(result);
+  }
 }

@@ -8,36 +8,42 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
+  id          Int          @id @default(autoincrement())
+  name        String
+  email       String       @unique
+  password    String
   
   // No SQLite, trocamos o Enum por String com um valor padrão entre aspas
-  role      String   @default("ALUNO") 
+  role        String       @default("ALUNO") 
   
-  quizzes   Quiz[]
-  questions Question[]
+  quizzes     Quiz[]
+  questions   Question[]
+  
+  // 👇 ADICIONADO: O Prisma precisa saber que um usuário tem várias submissões
+  submissions Submission[] 
 }
 
 model Quiz {
-  id               Int      @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   title            String
   duration         Int
   startDate        DateTime
   endDate          DateTime
   
   // Trocado de Enum para String
-  feedbackStrategy String   @default("AFTER_CLOSE") 
+  feedbackStrategy String         @default("AFTER_CLOSE") 
   
   professorId      Int
-  professor        User     @relation(fields: [professorId], references: [id])
+  professor        User           @relation(fields: [professorId], references: [id])
   
   questions        QuizQuestion[]
+  
+  // 👇 ADICIONADO: O Prisma precisa saber que uma prova tem várias submissões
+  submissions      Submission[]   
 }
 
 model Question {
-  id          Int      @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   content     String
   
   // Trocado de Enum para String (receberá "MULTIPLE_CHOICE", "TRUE_FALSE" ou "ESSAY")
@@ -62,6 +68,7 @@ model QuizQuestion {
 
   @@id([quizId, questionId])
 }
+
 model Submission {
   id        Int      @id @default(autoincrement())
   studentId Int
@@ -70,4 +77,8 @@ model Submission {
   score     Float?   // A nota total (pode ser null até o professor corrigir)
   status    String   @default("PENDING_REVIEW") // PENDING_REVIEW ou GRADED
   createdAt DateTime @default(now())
+
+  // 👇 ADICIONADO: As conexões oficiais que o Prisma precisava para não quebrar 👇
+  student   User     @relation(fields: [studentId], references: [id])
+  quiz      Quiz     @relation(fields: [quizId], references: [id])
 }

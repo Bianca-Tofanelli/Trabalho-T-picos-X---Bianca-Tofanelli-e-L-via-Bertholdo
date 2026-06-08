@@ -17,7 +17,7 @@ export default function SecretaryDashboard() {
 
     const carregarDadosSecretaria = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/secretario/dados`, {
+        const res = await fetch(`${API_URL}/api/auth/secretario/dados`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         if (!res.ok) throw new Error('Não foi possível carregar os dados do sistema.');

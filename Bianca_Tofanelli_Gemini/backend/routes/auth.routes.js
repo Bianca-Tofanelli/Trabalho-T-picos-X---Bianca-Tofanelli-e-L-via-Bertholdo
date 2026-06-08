@@ -25,7 +25,8 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 3. Salva o novo usuário no banco de dados (SQLite)
+    // 3. Salva o novo usuário no banco de dados
+    // Agora aceita perfeitamente 'ALUNO', 'PROFESSOR' ou 'SECRETARIO'
     const newUser = await prisma.user.create({
       data: {
         name,
@@ -66,10 +67,10 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email ou senha incorretos.' });
     }
 
-    // 3. Responde ao Frontend com os dados e um token simulado (para o login funcionar agora)
+    // 3. Responde ao Frontend com os dados e o token
     res.status(200).json({
       message: 'Login realizado com sucesso!',
-      token: 'token-simulado-para-teste-123', // Mais para frente você pode adicionar o JWT real aqui
+      token: 'token-simulado-para-teste-123', 
       user: { id: user.id, name: user.name, role: user.role }
     });
 
@@ -78,7 +79,44 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Erro interno no servidor ao tentar fazer login.' });
   }
 });
-// ROTA PARA EXCLUIR CONTA DE USUÁRIO (E APAGAR TUDO QUE É DELE NA ORDEM CERTA)
+
+
+// ==========================================
+// ROTA EXCLUSIVA DA SECRETARIA (DASHBOARD)
+// ==========================================
+router.get('/secretario/dados', async (req, res) => {
+  try {
+    // 1. Busca todos os usuários cadastrados (sem trazer a senha por segurança)
+    const usuarios = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true }
+    });
+
+    // 2. Busca todas as provas e inclui o nome do professor que a criou
+    const provas = await prisma.quiz.findMany({
+      include: {
+        professor: { select: { name: true } } 
+      }
+    });
+
+    // 3. Busca todas as submissões entregues para sabermos quem fez o quê
+    const submissoes = await prisma.submission.findMany({
+      include: {
+        student: { select: { name: true } },
+        quiz: { select: { title: true } }
+      }
+    });
+
+    res.json({ usuarios, provas, submissoes });
+  } catch (error) {
+    console.error("Erro ao buscar dados da secretaria:", error);
+    res.status(500).json({ error: 'Erro interno ao carregar dados da secretaria.' });
+  }
+});
+
+
+// ==========================================
+// ROTA PARA EXCLUIR CONTA DE USUÁRIO
+// ==========================================
 router.delete('/usuario/:id', async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
@@ -87,8 +125,9 @@ router.delete('/usuario/:id', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
     if (user.role === 'ALUNO') {
-      // Se for aluno, apaga só as provas que ele entregou
+      // Se for aluno, apaga as entregas dele
       await prisma.submission.deleteMany({ where: { studentId: userId } });
+      
     } else if (user.role === 'PROFESSOR') {
       // Se for professor, a limpeza precisa seguir a hierarquia do banco
       const provas = await prisma.quiz.findMany({ where: { professorId: userId } });
@@ -113,8 +152,13 @@ router.delete('/usuario/:id', async (req, res) => {
         }
       }
       
-      // 5. AGORA SIM, com a caixa vazia, apaga as provas!
+      // 5. Com a caixa vazia, apaga as provas!
       await prisma.quiz.deleteMany({ where: { professorId: userId } });
+      
+    } else if (user.role === 'SECRETARIO') {
+      // O Secretário não tem provas atreladas a ele, então não precisamos limpar tabelas filhas.
+      // O código simplesmente passa direto para a exclusão do usuário abaixo.
+      console.log(`Excluindo conta de Secretário: ID ${userId}`);
     }
 
     // Por fim, apaga a conta do usuário

@@ -6,6 +6,7 @@ import StudentDashboard from './components/StudentDashboard';
 import QuizCreator from './components/QuizCreator';
 import QuizPlayer from './components/QuizPlayer';
 import QuizResult from './components/QuizResult';
+import SecretaryDashboard from './components/SecretaryDashboard';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('token'));
@@ -31,7 +32,6 @@ function App() {
     try {
       const userId = localStorage.getItem('userId');
       
-      // 👇 CORREÇÃO: API_URL injetado na rota de deletar a conta 👇
       const response = await fetch(`${API_URL}/api/auth/usuario/${userId}`, { 
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
@@ -86,6 +86,14 @@ function App() {
               <button onClick={() => setCurrentView('student')} className={getButtonClass('student')}>Minhas Provas</button>
             </>
           )}
+
+          {/* 👇 CORREÇÃO: O Botão do Secretário agora está dentro da div correta 👇 */}
+          {userRole === 'SECRETARIO' && (
+            <>
+              <div className="h-6 w-px bg-gray-200 mx-1"></div>
+              <button onClick={() => setCurrentView('secretary')} className={getButtonClass('secretary')}>Painel da Secretaria</button>
+            </>
+          )}
         </div>
         
         <button 
@@ -100,12 +108,14 @@ function App() {
       <main className="max-w-5xl mx-auto">
         {currentView === 'home' && (
           <div className="text-center mt-20 p-10 bg-white rounded-3xl border border-gray-100 shadow-sm space-y-6">
+            
+            {/* 👇 CORREÇÃO: Mensagem de boas-vindas dinâmica para os 3 tipos 👇 */}
             <h1 className="text-4xl font-extrabold text-gray-900 mb-4">
-              Bem-vindo ao Sistema, {userRole === 'PROFESSOR' ? 'Professor(a)' : 'Aluno(a)'}!
+              Bem-vindo ao Sistema, {userRole === 'PROFESSOR' ? 'Professor(a)' : userRole === 'SECRETARIO' ? 'Secretário(a)' : 'Aluno(a)'}!
             </h1>
+            
             <p className="text-gray-500 text-lg">Use o menu superior para gerenciar suas avaliações.</p>
             
-            {/* 👇 ÁREA DE CONFIGURAÇÕES DA CONTA 👇 */}
             <div className="pt-10 mt-10 border-t border-gray-100 max-w-sm mx-auto">
               <p className="text-sm text-gray-400 mb-4 uppercase font-bold tracking-wider">Configurações da Conta</p>
               <button 
@@ -123,6 +133,9 @@ function App() {
         
         {currentView === 'create' && <QuizCreator />}
         {currentView === 'teacher' && <TeacherDashboard />}
+        
+        {/* 👇 CORREÇÃO: A página do Secretário finalmente renderizada na tela 👇 */}
+        {currentView === 'secretary' && <SecretaryDashboard />}
         
         {currentView === 'student' && (
           <StudentDashboard onStartQuiz={(id, isResult = false) => {

@@ -36,11 +36,13 @@ export default function QuizResult({ quizId, onBack }) {
 
   const { prova, entrega } = resultado;
   const isPendente = entrega.status === 'PENDING_REVIEW';
+  
+  // Tratamento de vírgula também para a nota geral!
+  const notaFinalSegura = entrega.nota !== null ? parseFloat(String(entrega.nota).replace(',', '.')) : 0;
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded-2xl shadow-sm border border-gray-200 mt-8">
       
-      {/* CABEÇALHO COM A NOTA INTELIGENTE E BASE 10 */}
       <div className="border-b border-gray-200 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Resultado: {prova.title}</h2>
@@ -52,7 +54,7 @@ export default function QuizResult({ quizId, onBack }) {
             {isPendente ? 'Nota Parcial' : 'Nota Final'}
           </span>
           <span className="text-3xl font-black flex items-baseline justify-center gap-1 mt-1">
-            {entrega.nota !== null ? parseFloat(entrega.nota).toFixed(1) : '0.0'} 
+            {entrega.nota !== null ? notaFinalSegura.toFixed(1) : '0.0'} 
             {isPendente ? ' + ?' : <span className="text-xl text-blue-600 font-bold"> / 10.0</span>}
           </span>
           {isPendente && (
@@ -66,21 +68,22 @@ export default function QuizResult({ quizId, onBack }) {
       <div className="space-y-6">
         {prova.questions.map((q, index) => {
           const respostaAluno = entrega.respostas[q.id];
-          const emBranco = !respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || respostaAluno.valor === "";
-          const acertou = !emBranco && respostaAluno?.isCorrect;
-          
+          const acertou = respostaAluno?.isCorrect;
           const pesoQuestao = parseFloat(q.details.peso || 1).toFixed(1);
           
-          // Variáveis extras para controle de questões Dissertativas
           const isDissertativa = q.type === 'ESSAY';
           const feedbackProfessor = respostaAluno?.feedback;
           
-          // 👇 A LÓGICA DE CORREÇÃO BLINDADA 👇
+          // 👇 NOVA LÓGICA BLINDADA CONTRA VÍRGULA 👇
           const rawScore = respostaAluno?.score;
-          // Se a prova já estiver finalizada (!isPendente), obriga a questão a ser considerada corrigida.
-          const foiCorrigida = !isPendente || (rawScore !== undefined && rawScore !== null);
-          // Se foi corrigida mas não tem nota válida, o aluno tirou 0.
-          const notaProfessor = (rawScore !== undefined && rawScore !== null) ? parseFloat(rawScore) : 0;
+          const valorSeguro = rawScore !== undefined && rawScore !== null ? String(rawScore).replace(',', '.') : null;
+          
+          const foiCorrigida = !isPendente || valorSeguro !== null;
+          let notaProfessor = valorSeguro !== null ? parseFloat(valorSeguro) : 0;
+          if (isNaN(notaProfessor)) notaProfessor = 0; // Proteção extra contra NaN
+
+          // Se a questão recebeu alguma nota do professor (ex: 0.5), NUNCA considere que foi entregue "em branco"
+          const emBranco = (!respostaAluno || respostaAluno.valor === undefined || respostaAluno.valor === null || String(respostaAluno.valor).trim() === "") && notaProfessor === 0;
 
           return (
             <div key={q.id} className={`p-5 rounded-xl border-2 ${
@@ -96,11 +99,9 @@ export default function QuizResult({ quizId, onBack }) {
                 Questão {index + 1} 
                 <span className="text-gray-500 font-normal text-sm">(Vale {pesoQuestao} pts)</span>
                 
-                {/* Ícones para Questões Objetivas */}
                 {!isDissertativa && acertou === true && <span className="text-green-600 ml-auto">✅ Acertou</span>}
                 {!isDissertativa && acertou === false && !emBranco && <span className="text-red-600 ml-auto">❌ Errou</span>}
                 
-                {/* Selos de Nota para Questões Dissertativas */}
                 {isDissertativa && foiCorrigida && (
                   <span className={`font-bold ml-auto px-3 py-1 rounded-full text-sm ${notaProfessor > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
                     Nota: {notaProfessor.toFixed(1)} / {pesoQuestao} pts
@@ -126,7 +127,6 @@ export default function QuizResult({ quizId, onBack }) {
                     respostaAluno?.valor)}
                 </p>
 
-                {/* BLOCO DA RESPOSTA CORRETA OU RUBRICA */}
                 {(acertou === false || emBranco || q.type === 'ESSAY') && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-sm text-green-700 font-bold uppercase mb-1">
@@ -140,7 +140,6 @@ export default function QuizResult({ quizId, onBack }) {
                   </div>
                 )}
 
-                {/* ÁREA: Justificativa do Professor para Questões Objetivas */}
                 {q.type !== 'ESSAY' && q.details.rubric && q.details.rubric.trim() !== '' && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
@@ -157,7 +156,6 @@ export default function QuizResult({ quizId, onBack }) {
                   </div>
                 )}
 
-                {/* ÁREA: Feedback Privado do Professor para Dissertativas */}
                 {isDissertativa && feedbackProfessor && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">

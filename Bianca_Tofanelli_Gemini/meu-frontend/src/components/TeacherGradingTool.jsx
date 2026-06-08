@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import API_URL from '../apiConfig'; // 👈 Importando a URL da nuvem
+import API_URL from '../apiConfig';
 
 export default function TeacherGradingTool({ submissionId, onBack }) {
   const [data, setData] = useState(null);
@@ -8,11 +8,10 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
   const [error, setError] = useState(''); 
 
   useEffect(() => {
-    let isMounted = true; // 🛡️ Prevenção de vazamento de memória (Memory Leak)
+    let isMounted = true; 
 
     const loadSubmission = async () => {
       try {
-        // 👇 Injeção da URL da nuvem na busca da prova
         const res = await fetch(`${API_URL}/api/submissions/${submissionId}/details`, {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
@@ -46,7 +45,6 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
   const handleSaveGrades = async () => {
     setIsSaving(true);
     try {
-      // 👇 Injeção da URL da nuvem na hora de salvar as notas
       const res = await fetch(`${API_URL}/api/submissions/${submissionId}/grade`, {
         method: 'PUT',
         headers: { 
@@ -89,11 +87,7 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
         <div className="space-y-8">
           {essayQuestions.map((q, index) => {
             const studentAnswer = data.answers[q.id]?.providedAnswer || "Não respondeu";
-            
-            // 🛡️ Prevenção de quebra do JSON caso o banco mande como Objeto ou String
             const details = typeof q.details === 'string' ? JSON.parse(q.details) : (q.details || {});
-            
-            // 🐛 Conserto da Rubrica: Ela fica salva dentro do details
             const rubricText = details.rubric || null;
 
             return (
@@ -110,7 +104,6 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                 </div>
 
                 <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Lado Esquerdo: Resposta do Aluno */}
                   <div>
                     <h4 className="font-semibold text-gray-600 mb-2">Resposta do Aluno:</h4>
                     <div className="bg-yellow-50 p-4 rounded-lg text-gray-800 italic min-h-[120px] whitespace-pre-wrap border border-yellow-100">
@@ -118,7 +111,6 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                     </div>
                   </div>
 
-                  {/* Lado Direito: Ferramenta de Avaliação */}
                   <div className="space-y-4">
                     <h4 className="font-semibold text-gray-600">Avaliação e Rubrica:</h4>
                     
@@ -132,12 +124,15 @@ export default function TeacherGradingTool({ submissionId, onBack }) {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nota da Questão:</label>
                       <input 
-                        type="number" 
-                        min="0"
-                        step="0.1"
+                        type="text" // Alterado para text para capturar a vírgula antes do navegador deletar
                         className="w-32 p-2 border rounded focus:ring-blue-500 focus:border-blue-500 outline-none"
-                        placeholder="Ex: 2.5"
-                        onChange={(e) => handleGradeChange(q.id, 'score', parseFloat(e.target.value))}
+                        placeholder="Ex: 2.5 ou 2,5"
+                        onChange={(e) => {
+                          // 👇 BLINDAGEM CONTRA A VÍRGULA BRASILEIRA 👇
+                          let valorSeguro = e.target.value.replace(',', '.');
+                          let notaDecimal = parseFloat(valorSeguro);
+                          handleGradeChange(q.id, 'score', isNaN(notaDecimal) ? 0 : notaDecimal);
+                        }}
                       />
                     </div>
 

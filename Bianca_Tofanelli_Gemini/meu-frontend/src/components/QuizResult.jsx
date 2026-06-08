@@ -73,9 +73,14 @@ export default function QuizResult({ quizId, onBack }) {
           
           // Variáveis extras para controle de questões Dissertativas
           const isDissertativa = q.type === 'ESSAY';
-          const notaProfessor = respostaAluno?.score;
           const feedbackProfessor = respostaAluno?.feedback;
-          const foiCorrigida = notaProfessor !== undefined && notaProfessor !== null;
+          
+          // 👇 A LÓGICA DE CORREÇÃO BLINDADA 👇
+          const rawScore = respostaAluno?.score;
+          // Se a prova já estiver finalizada (!isPendente), obriga a questão a ser considerada corrigida.
+          const foiCorrigida = !isPendente || (rawScore !== undefined && rawScore !== null);
+          // Se foi corrigida mas não tem nota válida, o aluno tirou 0.
+          const notaProfessor = (rawScore !== undefined && rawScore !== null) ? parseFloat(rawScore) : 0;
 
           return (
             <div key={q.id} className={`p-5 rounded-xl border-2 ${
@@ -97,8 +102,8 @@ export default function QuizResult({ quizId, onBack }) {
                 
                 {/* Selos de Nota para Questões Dissertativas */}
                 {isDissertativa && foiCorrigida && (
-                  <span className="text-blue-700 font-bold ml-auto bg-blue-100 px-3 py-1 rounded-full text-sm">
-                    Nota: {parseFloat(notaProfessor).toFixed(1)} / {pesoQuestao} pts
+                  <span className={`font-bold ml-auto px-3 py-1 rounded-full text-sm ${notaProfessor > 0 ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                    Nota: {notaProfessor.toFixed(1)} / {pesoQuestao} pts
                   </span>
                 )}
                 {isDissertativa && !foiCorrigida && !emBranco && (
@@ -152,7 +157,7 @@ export default function QuizResult({ quizId, onBack }) {
                   </div>
                 )}
 
-                {/* 👇 NOVA ÁREA: Feedback Privado do Professor para Dissertativas 👇 */}
+                {/* ÁREA: Feedback Privado do Professor para Dissertativas */}
                 {isDissertativa && feedbackProfessor && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="bg-purple-50 border border-purple-100 rounded-lg p-3">

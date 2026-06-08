@@ -16,12 +16,11 @@ export default function QuizCreator() {
 
   const addQuestion = (type) => {
     const newQuestion = {
-      // 👇 Correção 2: Garante que o ID seja 100% único mesmo com duplo clique
       id: Date.now() + Math.random(), 
       content: '',
       type: type,
       details: type === 'MULTIPLE_CHOICE' 
-        ? { options: ['', '', '', ''], correctOptionIndex: 0, peso: 1 } 
+        ? { options: ['', '', '', ''], correctOptionIndex: 0, peso: 1 } // Começa com 4 por padrão
         : type === 'TRUE_FALSE' 
           ? { correctAnswer: true, peso: 1 } 
           : { keywords: [], rubric: '', peso: 1 } 
@@ -46,10 +45,33 @@ export default function QuizCreator() {
     }));
   };
 
-  // Calcula a soma normalmente
+  // 👇 NOVA LÓGICA: Adiciona uma nova alternativa em branco
+  const handleAddOption = (q) => {
+    // Limite amigável de 10 alternativas para não quebrar a tela
+    if (q.details.options.length >= 10) return alert('Máximo de 10 alternativas permitido.');
+    updateQuestionDetails(q.id, 'options', [...q.details.options, '']);
+  };
+
+  // 👇 NOVA LÓGICA: Remove uma alternativa e protege a resposta correta
+  const handleRemoveOption = (q, indexToRemove) => {
+    if (q.details.options.length <= 2) {
+      return alert('A questão deve ter pelo menos 2 alternativas!');
+    }
+    
+    const newOptions = q.details.options.filter((_, i) => i !== indexToRemove);
+    updateQuestionDetails(q.id, 'options', newOptions);
+
+    // Se o professor apagou a resposta que estava marcada como correta, reseta para a letra A (índice 0)
+    if (q.details.correctOptionIndex === indexToRemove) {
+      updateQuestionDetails(q.id, 'correctOptionIndex', 0);
+    } 
+    // Se apagou uma alternativa ANTES da correta, o índice da correta cai 1 casinha para acompanhar
+    else if (q.details.correctOptionIndex > indexToRemove) {
+      updateQuestionDetails(q.id, 'correctOptionIndex', q.details.correctOptionIndex - 1);
+    }
+  };
+
   const somaDosPontos = questions.reduce((acc, q) => acc + Number(q.details.peso || 0), 0);
-  
-  // 👇 Correção 1: Resolve o bug de matemática do JavaScript (ex: 9.999999 !== 10)
   const isSomaDez = somaDosPontos.toFixed(1) === '10.0';
 
   const handleSaveQuiz = async () => {
@@ -182,17 +204,58 @@ export default function QuizCreator() {
             />
 
             {q.type === 'MULTIPLE_CHOICE' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {q.details.options.map((opt, i) => (
                   <div key={i} className="flex items-center space-x-2">
-                    <input type="radio" name={`correct-${q.id}`} checked={q.details.correctOptionIndex === i} onChange={() => updateQuestionDetails(q.id, 'correctOptionIndex', i)} />
-                    <input type="text" className={`flex-1 p-2 border rounded outline-none ${q.details.correctOptionIndex === i ? 'border-green-500 bg-green-50' : ''}`} placeholder={`Alternativa ${String.fromCharCode(65 + i)}`} value={opt} onChange={(e) => {
+                    {/* Botão Radio para marcar a correta */}
+                    <input 
+                      type="radio" 
+                      name={`correct-${q.id}`} 
+                      checked={q.details.correctOptionIndex === i} 
+                      onChange={() => updateQuestionDetails(q.id, 'correctOptionIndex', i)} 
+                      className="w-5 h-5 cursor-pointer text-blue-600"
+                    />
+                    
+                    {/* Input de texto da alternativa */}
+                    <input 
+                      type="text" 
+                      className={`flex-1 p-2 border rounded outline-none transition-colors ${q.details.correctOptionIndex === i ? 'border-green-500 bg-green-50' : 'focus:border-blue-400'}`} 
+                      placeholder={`Alternativa ${String.fromCharCode(65 + i)}`} 
+                      value={opt} 
+                      onChange={(e) => {
                         const newOptions = [...q.details.options];
                         newOptions[i] = e.target.value;
                         updateQuestionDetails(q.id, 'options', newOptions);
-                      }} />
+                      }} 
+                    />
+                    
+                    {/* Botão de Remover Alternativa (Lixeira) */}
+                    {q.details.options.length > 2 && (
+                      <button 
+                        onClick={() => handleRemoveOption(q, i)}
+                        className="text-gray-400 hover:text-red-600 transition-colors p-2"
+                        title="Excluir alternativa"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 ))}
+
+                {/* Botão de Adicionar Nova Alternativa */}
+                {q.details.options.length < 10 && (
+                  <button 
+                    onClick={() => handleAddOption(q)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-1 mt-2 transition-colors ml-7"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Adicionar Alternativa
+                  </button>
+                )}
               </div>
             )}
 

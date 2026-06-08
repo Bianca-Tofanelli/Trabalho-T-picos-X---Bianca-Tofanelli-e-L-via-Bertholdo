@@ -48,6 +48,13 @@ quizRoutes.patch(
   )
 );
 
+quizRoutes.patch(
+  "/:id/release-answer-key",
+  controller.releaseAnswerKey.bind(
+    controller
+  )
+);
+
 quizRoutes.get(
   "/:id",
   controller.findById.bind(

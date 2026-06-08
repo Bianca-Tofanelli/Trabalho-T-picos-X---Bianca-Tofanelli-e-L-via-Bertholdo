@@ -56,6 +56,8 @@ model Quiz {
 
   status QuizStatus @default(DRAFT)
 
+  answerKeyReleased Boolean @default(false)
+
   timeLimit   Int?
   maxAttempts Int  @default(1)
 
@@ -66,6 +68,7 @@ model Quiz {
   professor   User   @relation(fields: [professorId], references: [id])
 
   questions Question[]
+  rubrics   Rubric[]
   attempts  Attempt[]
   reports   Report[]
 
@@ -91,7 +94,6 @@ model Question {
 
   alternatives Alternative[]
   answers      Answer[]
-  rubrics      Rubric[]
 
   @@index([quizId])
   @@map("questions")
@@ -174,11 +176,11 @@ model Rubric {
   createdAt DateTime @default(now())
 
   quizId String
-  quiz   Quiz @relation(fields: [questionId], references: [id])
+  quiz   Quiz @relation(fields: [quizId], references: [id])
 
   feedbacks Feedback[]
 
-  @@index([questionId])
+  @@index([quizId])
   @@map("rubrics")
 }
 

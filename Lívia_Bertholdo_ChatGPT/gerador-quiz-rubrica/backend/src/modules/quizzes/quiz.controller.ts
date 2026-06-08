@@ -88,4 +88,16 @@ export class QuizController {
 
     return res.status(200).json(result);
   }
+
+  async releaseAnswerKey(
+    req: Request,
+    res: Response
+  ) {
+    const result =
+      await this.service.releaseAnswerKey(
+        String(req.params.id)
+      );
+
+    return res.status(200).json(result);
+  }
 }

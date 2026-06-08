@@ -76,4 +76,17 @@ export class QuizRepository {
       },
     });
   }
+
+  async releaseAnswerKey(
+    id: string
+  ) {
+    return prisma.quiz.update({
+      where: {
+        id,
+      },
+      data: {
+        answerKeyReleased: true,
+      },
+    });
+  }
 }

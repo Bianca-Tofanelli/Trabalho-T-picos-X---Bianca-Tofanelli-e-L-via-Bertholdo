@@ -89,4 +89,24 @@ export class QuizService {
 
     return this.repository.close(id);
   }
+
+  async releaseAnswerKey(
+    id: string
+  ) {
+    const quiz =
+      await this.findById(id);
+
+    if (
+      quiz.status !== "CLOSED"
+    ) {
+      throw new AppError(
+        "O gabarito só pode ser liberado após o encerramento do quiz",
+        400
+      );
+    }
+
+    return this.repository.releaseAnswerKey(
+      id
+    );
+  }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import API_URL from '../apiConfig'; // Verifique se a quantidade de '../' está certa para a sua pasta
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
@@ -14,7 +15,11 @@ export default function Login({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
-    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    // 👇 O SEGREDO ESTÁ AQUI: Agora o link junta o endereço do Render com a rota! 👇
+    const endpoint = isLogin 
+      ? `${API_URL}/api/auth/login` 
+      : `${API_URL}/api/auth/register`;
+      
     const payload = isLogin 
       ? { email, password } 
       : { email, password, name, role };
@@ -31,7 +36,7 @@ export default function Login({ onLoginSuccess }) {
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
-        throw new Error('Servidor retornou um formato inesperado.');
+        throw new Error('Servidor retornou um formato inesperado. (Possível erro de conexão com o Render)');
       }
 
       if (!response.ok) {

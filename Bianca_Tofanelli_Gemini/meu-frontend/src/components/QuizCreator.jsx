@@ -78,13 +78,18 @@ export default function QuizCreator() {
       return alert('A data de encerramento deve ser DEPOIS da data de início.');
     }
 
-    // 👇 TRAVA DE SEGURANÇA: Rúbrica Obrigatória para Dissertativas 👇
-    const temDissertativaSemRubrica = questions.some(
-      q => q.type === 'ESSAY' && (!q.details.rubric || q.details.rubric.trim() === '')
-    );
-    if (temDissertativaSemRubrica) {
-      return alert('⚠️ AÇÃO BLOQUEADA!\n\nTodas as questões dissertativas precisam ter os Critérios de Correção (Rúbrica) preenchidos antes de salvar a prova.');
-    }
+   // 👇 TRAVA DE SEGURANÇA: Rúbrica Obrigatória para Dissertativas (Corrigida) 👇
+const temDissertativaSemRubrica = questions.some(q => {
+  // Verifica se o tipo é algum dos tipos dissertativos
+  const isDissertativa = (q.type === 'ESSAY' || q.type === 'PLAY_ESSAY');
+  
+  // Verifica se é dissertativa E se a rúbrica está vazia ou apenas com espaços
+  return isDissertativa && (!q.details.rubric || q.details.rubric.trim() === '');
+});
+
+if (temDissertativaSemRubrica) {
+  return alert('⚠️ AÇÃO BLOQUEADA!\n\nTodas as questões dissertativas precisam ter os Critérios de Correção (Rúbrica) preenchidos antes de salvar a prova.');
+}
 
     if (!isSomaDez) {
       return alert(`A soma dos pesos é ${somaDosPontos.toFixed(2)}. Ela precisa ser EXATAMENTE 10.00!`);
